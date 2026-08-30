@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Understand skills-lock.json</title>
+  <style>
+    :root { color-scheme: light dark; --ink: #24303b; --muted: #68737d; --card: #f3f5f6; }
+    body { max-width:  fiftyrem; margin: 4rem auto; padding: 0 1.25rem; color: var(--ink); font: 1.05rem/1.65 system-ui, sans-serif; }
+    h1 { line-height: 1.15; font-size: clamp(2rem, 6vw, 3.5rem); max-width: 12ch; }
+    h2 { margin-top: 2.5rem; }
+    code { font-family: ui-monospace, SFMono-Regular, monospace; }
+    pre { overflow-x: auto; padding: 1rem; border-radius: .75rem; background: var(--card); }
+    .quiet { color: var(--muted); }
+    @media (prefers-color-scheme: dark) { :root { --ink: #e8edf0; --muted: #aeb9c1; --card: #20272c; } }
+  </style>
+</head>
+<body>
+  <p class="quiet">Lesson 01 · Repository skills</p>
+  <h1>What is <code>skills-lock.json</code>?</h1>
+  <p>It is a reproducibility manifest: a compact record of which skills are expected, where they came from, and how to recognize their content.</p>
+
+  <h2>Read one entry</h2>
+  <pre><code>"grill-me": {
+  "source": "mattpocock/skills",
+  "sourceType": "github",
+  "skillPath": "skills/productivity/grill-me/SKILL.md",
+  "computedHash": "..."
+}</code></pre>
+  <p><code>source</code> and <code>skillPath</code> identify the upstream file. <code>computedHash</code> fingerprints its content so drift can be detected.</p>
+
+  <h2>Keep the layers separate</h2>
+  <pre><code>lock file  →  expected source and identity
+skill dir  →  actual installed SKILL.md files
+symlinks   →  tool-specific access paths</code></pre>
+  <p>The lock file does not execute a skill and does not replace its <code>SKILL.md</code>.</p>
+
+  <h2>Quick check</h2>
+  <p>If <code>skills-lock.json</code> lists a skill but the corresponding installed file is missing, what kind of problem is that?</p>
+  <details><summary>Answer</summary><p>An incomplete installation: the manifest and installed skill tree disagree.</p></details>
+
+  <p class="quiet">Want to test your understanding or inspect another entry? Ask your teacher.</p>
+  <p><a href="../reference/skills-lock-json.md">Open the quick reference</a> · <a href="../skills-lock.json">Open the source file</a></p>
+</body>
+</html>
