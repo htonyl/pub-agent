@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/counter/increment",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+    },
+    "body": "{"
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"code\":\"INVALID_REQUEST\",\"message\":\"Request body is invalid\"}"
+  }
+}

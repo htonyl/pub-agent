@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/v1/counter",
+    "headers": {
+      "accept": "application/json"
+    }
+  },
+  "response": {
+    "status": 503,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"code\":\"UNAVAILABLE\",\"message\":\"Service is temporarily unavailable\"}"
+  }
+}

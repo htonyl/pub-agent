@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/v1/counter/increment",
+    "headers": {
+      "content-type": "application/json",
+      "accept": "application/json"
+    },
+    "body": "{\"idempotencyKey\":\"request-124\"}"
+  },
+  "response": {
+    "status": 409,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"code\":\"COUNTER_OVERFLOW\",\"message\":\"Counter cannot be incremented\"}"
+  }
+}
