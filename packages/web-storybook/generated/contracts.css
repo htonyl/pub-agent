@@ -1,0 +1,7 @@
+/* Generated contract styles. */
+.pa-button { min-block-size: 2.75rem; border-radius: var(--pa-radius-md); border: 1px solid var(--pa-border-default); padding: var(--pa-space-2) var(--pa-space-4); font: var(--pa-type-label); transition: background var(--pa-motion-fast) var(--pa-motion-ease); }
+.pa-button--primary { background: var(--pa-action-primary); color: var(--pa-text-on-action); }
+.pa-button--destructive { background: var(--pa-action-danger); color: var(--pa-text-on-action); }
+.pa-button:focus-visible, .pa-input:focus-visible { outline: 3px solid var(--pa-border-focus); outline-offset: 2px; }
+.pa-input { min-block-size: 2.75rem; border: 1px solid var(--pa-border-default); border-radius: var(--pa-radius-md); padding: 0 var(--pa-space-3); color: var(--pa-text-primary); background: var(--pa-surface-base); }
+@media (prefers-reduced-motion: reduce) { .pa-button { transition: none; } }

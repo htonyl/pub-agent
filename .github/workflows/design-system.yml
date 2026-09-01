@@ -1,0 +1,44 @@
+name: Design system
+
+on:
+  pull_request:
+    paths:
+      - "design-system/**"
+      - "packages/web-storybook/**"
+      - "packages/kotlin/design-*/**"
+      - "packages/ios/PubAgentDesign/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+  push:
+    branches: [main]
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm design:check
+      - run: pnpm storybook:build
+      - run: gradle --configure-on-demand :packages:kotlin:design-catalog:compileKotlinJvm --console=plain
+  android-catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+      - run: gradle --configure-on-demand :packages:kotlin:design-catalog-android:compileDebugKotlin --console=plain
+  ios-contract:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build --package-path packages/ios/PubAgentDesign

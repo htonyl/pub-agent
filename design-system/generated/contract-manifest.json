@@ -1,0 +1,80 @@
+{
+  "version": "0.1.0",
+  "accessibility": {
+    "standard": "WCAG 2.2 AA",
+    "minimumHitTarget": 44,
+    "reducedMotion": true
+  },
+  "primitives": {
+    "Text": {
+      "styles": [
+        "body",
+        "label",
+        "title",
+        "headline"
+      ],
+      "requires": [
+        "semantic content role",
+        "scaled text"
+      ]
+    },
+    "Surface": {
+      "variants": [
+        "base",
+        "raised",
+        "sunken",
+        "selected"
+      ],
+      "requires": [
+        "semantic surface token"
+      ]
+    },
+    "Button": {
+      "variants": [
+        "primary",
+        "secondary",
+        "tertiary",
+        "destructive"
+      ],
+      "sizes": [
+        "small",
+        "medium",
+        "large"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focused",
+        "disabled"
+      ],
+      "requires": [
+        "accessible name",
+        "44px minimum target",
+        "visible focus"
+      ]
+    },
+    "TextField": {
+      "states": [
+        "default",
+        "focused",
+        "disabled",
+        "error"
+      ],
+      "requires": [
+        "visible label",
+        "hint/error association",
+        "visible focus"
+      ]
+    }
+  },
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "breakpoints": {
+    "compact": 360,
+    "medium": 768,
+    "expanded": 1280
+  }
+}

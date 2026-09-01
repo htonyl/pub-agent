@@ -12,6 +12,7 @@ remain in [`docs/prd`](../../prd/README.md).
 | TD-002 | Use MCP as the agent-facing integration boundary. | Proposed | [MCP integration](#td-002-mcp-integration) |
 | TD-003 | Scope agent capabilities independently by action, resource, document state, audience, and lifetime. | Proposed | [Capability scoping](#td-003-capability-scoping) |
 | TD-004 | Make finalized documents read-only to agents by default. | Proposed | [Document lifecycle](#td-004-document-lifecycle) |
+| TD-005 | Use generated DTCG design contracts across web, iOS, and Android. | Accepted | [Cross-platform design contracts](TD-005-design-system.md) |
 
 ## TD-002: MCP integration
 

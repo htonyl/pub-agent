@@ -17,3 +17,6 @@ dependencyResolutionManagement {
 rootProject.name = "pub-agent"
 
 include(":packages:kotlin:counter-contract")
+include(":packages:kotlin:design-contract")
+include(":packages:kotlin:design-catalog")
+include(":packages:kotlin:design-catalog-android")

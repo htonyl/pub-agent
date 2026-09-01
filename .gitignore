@@ -1,3 +1,6 @@
 .gradle/
 **/build/
 .idea/
+node_modules/
+.pnpm-store/
+packages/web-storybook/storybook-static/
