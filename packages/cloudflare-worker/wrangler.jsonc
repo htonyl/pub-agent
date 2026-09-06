@@ -12,11 +12,19 @@
       {
         "name": "COUNTERS",
         "class_name": "CounterDurableObject"
+      },
+      {
+        "name": "DOCUMENTS",
+        "class_name": "DocumentDurableObject"
       }
     ]
   },
   "exports": {
     "CounterDurableObject": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    },
+    "DocumentDurableObject": {
       "type": "durable-object",
       "storage": "sqlite"
     }

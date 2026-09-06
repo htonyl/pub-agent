@@ -22,6 +22,16 @@ The starter routes are:
 - `GET /counters/:name`
 - `POST /counters/:name/increment` with an optional JSON `{ "amount": 1 }`
 
+Document routes are available under both `/api/v1` and the lightweight
+`/mcp/v1` JSON contract. They include document creation, version reads, large
+replacement updates, approval, and review-link creation. The MCP-shaped
+surface is intentionally HTTP/JSON and does not claim to implement the MCP
+SDK. Document requests require an explicit comma-separated capability in the
+`x-pubagent-capabilities` header; the policy adapter denies by default.
+
+`GET /documents/:id` renders an HTML document page. JSON document and publish
+responses include a stable `permalink` field.
+
 Each counter name maps to one Durable Object instance. The object owns its
 SQLite database and exposes a small RPC interface to the Worker. The Worker
 does not query Durable Object storage directly.
