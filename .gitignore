@@ -4,6 +4,7 @@
 node_modules/
 .pnpm-store/
 packages/web-storybook/storybook-static/
+packages/web-app/dist/
 packages/cloudflare-worker/.wrangler/
 packages/cloudflare-worker/.dev.vars
 packages/cloudflare-worker/worker-configuration.d.ts
