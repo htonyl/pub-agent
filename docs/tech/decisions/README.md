@@ -13,6 +13,8 @@ remain in [`docs/prd`](../../prd/README.md).
 | TD-003 | Scope agent capabilities independently by action, resource, document state, audience, and lifetime. | Proposed | [Capability scoping](#td-003-capability-scoping) |
 | TD-004 | Make finalized documents read-only to agents by default. | Proposed | [Document lifecycle](#td-004-document-lifecycle) |
 | TD-005 | Use generated DTCG design contracts across web, iOS, and Android. | Accepted | [Cross-platform design contracts](TD-005-design-system.md) |
+| TD-006 | Use typed ordered blocks with server-sequenced collaborative operations. | Accepted | [Collaborative blocks and CRDT](TD-006-collaborative-blocks-and-crdt.md) |
+| TD-007 | Shard access and document state with Cloudflare Durable Objects. | Accepted | [Cloudflare collaboration topology](TD-007-cloudflare-collaboration-topology.md) |
 
 ## TD-002: MCP integration
 
@@ -51,5 +53,7 @@ when the workflow requires it.
 - Human identity provider, authentication protocol, and service-identity model.
 - Storage, indexing, cache invalidation, and collaboration conflict strategy.
 - API schema/versioning and MCP compatibility version.
+- Durable block snapshot persistence and staged upload protocol details.
+- Production identity integration for the access-control Durable Object.
 - Compliance, data residency, retention, export, and deletion requirements.
 - Capacity targets, SLOs, quotas, and cost model.

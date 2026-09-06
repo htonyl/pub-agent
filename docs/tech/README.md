@@ -13,12 +13,17 @@ requirements remain under [`docs/prd`](../prd/README.md).
 docs/tech/
 ├── README.md
 ├── technical-specifications/
-│   └── README.md
+│   ├── README.md
+│   └── collaborative-documents.md
 └── decisions/
-    └── README.md
+    ├── README.md
+    ├── TD-005-design-system.md
+    ├── TD-006-collaborative-blocks-and-crdt.md
+    └── TD-007-cloudflare-collaboration-topology.md
 ```
 
 ## Documents
 
 - [Technical Specifications](technical-specifications/README.md)
+- [Collaborative documents implementation plan](technical-specifications/collaborative-documents.md)
 - [Technical Decisions](decisions/README.md)
