@@ -8,6 +8,16 @@ import {
   type InsertOperation,
   chunkText,
 } from '../src/models/document-crdt'
+import * as Y from 'yjs'
+import {
+  applyYjsTextUpdate,
+  createYjsTextDocument,
+  encodeYjsTextEnvelope,
+  encodeYjsTextUpdate,
+  restoreYjsText,
+  snapshotYjsText,
+  YjsCausalGapError,
+} from '../src/models/yjs-text'
 
 const block = (blockId: string, content = blockId): Block => ({
   blockId,
@@ -153,5 +163,26 @@ describe('DocumentCrdt', () => {
     expect(snapshot.sequence).toBe(5)
     expect(snapshot.visibleBlocks.map(({ blockId }) => blockId)).toEqual(['root', 'other', 'child'])
     expect(snapshot.blocks[0].content).toEqual({ type: 'text', chunks: ['updated'] })
+  })
+
+  it('assembles, validates, reorders, and replays complete Yjs text updates', () => {
+    const source = createYjsTextDocument('hello')
+    const baseSnapshot = snapshotYjsText(source)
+    const baseVector = Y.encodeStateVector(source)
+    source.getText('text').insert(5, ' world')
+    const first = encodeYjsTextEnvelope(encodeYjsTextUpdate(source, baseVector), baseVector, 'y-1', 3)
+    const target = restoreYjsText(baseSnapshot)
+
+    expect(applyYjsTextUpdate(target, first).text).toBe('hello world')
+    expect(applyYjsTextUpdate(target, first).text).toBe('hello world')
+    expect(() => applyYjsTextUpdate(createYjsTextDocument('other'), first)).toThrow(YjsCausalGapError)
+  })
+
+  it('rejects an incomplete chunk envelope before Yjs sees arbitrary fragments', () => {
+    const source = createYjsTextDocument('hello')
+    const baseVector = Y.encodeStateVector(source)
+    source.getText('text').insert(0, 'x')
+    const envelope = encodeYjsTextEnvelope(encodeYjsTextUpdate(source, baseVector), baseVector, 'y-2', 3)
+    expect(() => applyYjsTextUpdate(createYjsTextDocument('hello'), { ...envelope, chunks: envelope.chunks.slice(0, -1), totalBytes: envelope.totalBytes })).toThrow()
   })
 })

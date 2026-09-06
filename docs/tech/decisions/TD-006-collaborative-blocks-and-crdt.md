@@ -41,9 +41,10 @@ same unit across versions.
 
 The dependency-free model is deliberately behind a small interface so the
 Worker can test convergence and idempotency without a Cloudflare runtime. A
-future text adapter may use Yjs inside bounded text blocks after Worker
-compatibility, persistence, memory, and anchor behavior are validated. We do
-not introduce a custom character-level CRDT or a new dependency in this slice.
+bounded text adapter uses Yjs inside individual text blocks after validating
+Worker bundling. Yjs updates are transported as complete chunk envelopes and
+never as independently applied fragments. The block CRDT remains the canonical
+structure and no arbitrary character-level document-wide CRDT is introduced.
 
 ## Large edit protocol
 

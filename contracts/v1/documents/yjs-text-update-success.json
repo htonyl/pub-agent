@@ -1,0 +1,4 @@
+{
+  "request": { "method": "POST", "path": "/api/v1/documents/doc-1/yjs-updates", "headers": { "authorization": "Bearer <test-token>", "content-type": "application/json" }, "body": "{\"baseVersion\":1,\"clientUpdateId\":\"y-1\",\"envelope\":{\"protocol\":\"yjs-text/v1\",\"updateId\":\"y-1\",\"baseStateVector\":\"AA==\",\"totalBytes\":3,\"chunkBytes\":3,\"chunks\":[\"AQID\"]}}" },
+  "response": { "status": 200, "headers": { "content-type": "application/json" }, "body": "{\"duplicate\":false,\"yjs\":{\"protocol\":\"yjs-text/v1\"}}" }
+}

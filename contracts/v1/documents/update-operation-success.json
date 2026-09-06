@@ -1,0 +1,4 @@
+{
+  "request": { "method": "POST", "path": "/api/v1/documents/doc-1/operations", "headers": { "authorization": "Bearer <test-token>", "content-type": "application/json" }, "body": "{\"operation\":{\"type\":\"update\",\"actorId\":\"agent\",\"clientId\":\"client-1\",\"opId\":\"op-2\",\"logicalClock\":2,\"baseSequence\":1,\"blockId\":\"block-1\",\"patch\":{\"content\":{\"type\":\"text\",\"chunks\":[\"Updated\"]}}}}" },
+  "response": { "status": 200, "headers": { "content-type": "application/json" }, "body": "{\"duplicate\":false,\"appliedOperation\":{\"sequence\":2}}" }
+}

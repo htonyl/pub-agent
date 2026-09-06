@@ -1,9 +1,9 @@
 # Collaborative document implementation plan
 
 This plan turns the existing agent-publishing requirements into a Cloudflare
-implementation. It is intentionally staged: the repository currently has a
-Worker/Drizzle/SQLite Durable Object scaffold and design-system Storybook, but
-not a separate product web application.
+implementation. It is intentionally staged: the repository now has a
+Worker/Drizzle/SQLite Durable Object scaffold, design-system Storybook, and a
+dependency-light product web application.
 
 ## Current foundation in this branch
 
@@ -14,15 +14,23 @@ not a separate product web application.
   document-scoped WebSocket room.
 - Versioned HTTP and MCP-shaped routes publish, read, update, approve, and
   create a stable review permalink.
+- A responsive human review/editor surface demonstrates provenance, comments,
+  version history, exact-version approval, and collaboration connection states.
 - The HTML reader escapes content server-side and renders a minimal human
   document view.
 - Existing counter routes and bindings remain intact.
 
 The current HTTP persistence adapter still stores a text payload for the
-smallest vertical slice. The next integration step is to persist the block
-snapshot and operation tail through the same `DocumentCrdt` interface; the
-canonical block contract and tests are already established so this migration
-does not change the MCP or web protocol.
+smallest vertical slice. Block operations and replayable snapshots now use the
+same `DocumentCrdt` interface inside the document object, while bounded text
+edits use a Yjs `Y.Text` adapter. Yjs binary updates are accepted only as
+complete, base64 chunk envelopes; the document object remains authoritative for
+authorization, server sequences, versions, approvals, and replay.
+
+The Worker uses a signed HMAC bearer-token seam until a workspace access object
+is introduced. `PUBAGENT_AUTH_SECRET` is the exact integration point for the
+future Access Durable Object or edge-issued opaque token verifier. Client
+capability headers are deliberately not accepted.
 
 ## Delivery plan
 

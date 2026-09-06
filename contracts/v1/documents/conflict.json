@@ -1,0 +1,4 @@
+{
+  "request": { "method": "POST", "path": "/api/v1/documents/doc-1/updates", "headers": { "authorization": "Bearer <test-token>", "content-type": "application/json" }, "body": "{\"baseVersion\":1,\"content\":\"stale\",\"clientUpdateId\":\"update-2\"}" },
+  "response": { "status": 409, "headers": { "content-type": "application/json" }, "body": "{\"error\":\"Document base version is stale\"}" }
+}

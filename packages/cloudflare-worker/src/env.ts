@@ -4,6 +4,7 @@ import type { DocumentDurableObject } from './durable-objects/document-durable-o
 export type CloudflareBindings = {
   COUNTERS: DurableObjectNamespace<CounterDurableObject>
   DOCUMENTS: DurableObjectNamespace<DocumentDurableObject>
+  PUBAGENT_AUTH_SECRET?: string
 }
 
 export type AppEnv = {

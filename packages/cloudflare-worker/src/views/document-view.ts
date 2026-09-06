@@ -7,6 +7,7 @@ export function renderDocument(document: DocumentSnapshot, origin: string) {
     content: document.content,
     status: document.status,
     version: document.version,
+    contentHash: document.contentHash,
     createdAt: document.createdAt.toISOString(),
     updatedAt: document.updatedAt.toISOString(),
     permalink: documentPermalink(document.id, origin),

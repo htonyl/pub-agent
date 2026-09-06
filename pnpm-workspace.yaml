@@ -1,6 +1,7 @@
 packages:
   - packages/web-storybook
   - packages/cloudflare-worker
+  - packages/web-app
 allowBuilds:
   esbuild: false
   workerd: true

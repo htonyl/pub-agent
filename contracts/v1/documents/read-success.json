@@ -1,0 +1,4 @@
+{
+  "request": { "method": "GET", "path": "/api/v1/documents/doc-1", "headers": { "authorization": "Bearer <test-token>" } },
+  "response": { "status": 200, "headers": { "content-type": "application/json" }, "body": "{\"id\":\"doc-1\",\"version\":1,\"contentHash\":\"<sha256>\"}" }
+}

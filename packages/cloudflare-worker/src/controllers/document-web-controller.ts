@@ -5,8 +5,9 @@ import { documentPolicy } from '../policy/document-policy'
 import { renderDocumentHtml } from '../views/document-view'
 
 export async function renderDocumentPage(c: Context<AppEnv>) {
-  if (!documentPolicy.authorize('document:read', c.req.raw)) {
-    return c.text('Forbidden', 403)
+  const authorization = await documentPolicy.authorize('document:read', c.req.raw, c.env.PUBAGENT_AUTH_SECRET)
+  if (!authorization.allowed) {
+    return c.text(authorization.status === 401 ? 'Unauthorized' : 'Forbidden', authorization.status)
   }
 
   const documentId = requiredParam(c, 'id')

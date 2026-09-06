@@ -32,6 +32,7 @@ export class DrizzleDocumentStore implements DocumentStore {
     actorId: string
     clientUpdateId: string
     now: Date
+    contentHash: string
   }): Promise<DocumentSnapshot> {
     const snapshot: DocumentSnapshot = {
       id: input.id,
@@ -39,6 +40,7 @@ export class DrizzleDocumentStore implements DocumentStore {
       content: input.content,
       status: 'draft',
       version: 1,
+      contentHash: input.contentHash,
       createdAt: input.now,
       updatedAt: input.now,
     }
@@ -51,6 +53,7 @@ export class DrizzleDocumentStore implements DocumentStore {
         version: 1,
         title: input.title,
         content: input.content,
+        contentHash: input.contentHash,
         status: 'draft',
         actorId: input.actorId,
         clientUpdateId: input.clientUpdateId,
@@ -87,6 +90,17 @@ export class DrizzleDocumentStore implements DocumentStore {
     return Boolean(row)
   }
 
+  async getUpdateAck(documentId: string, clientUpdateId: string): Promise<DocumentSnapshot | null> {
+    const update = await this.db
+      .select({ version: documentUpdates.version })
+      .from(documentUpdates)
+      .where(eq(documentUpdates.id, updateId(documentId, clientUpdateId)))
+      .get()
+    if (!update) return null
+    const version = await this.getVersion(documentId, update.version)
+    return version ? versionToSnapshot(version) : null
+  }
+
   async getVersion(documentId: string, version: number): Promise<DocumentVersion | null> {
     const row = await this.db
       .select()
@@ -96,7 +110,7 @@ export class DrizzleDocumentStore implements DocumentStore {
     return row ? rowToVersion(row) : null
   }
 
-  async appendUpdate(input: DocumentUpdate & { now: Date }): Promise<{
+  async appendUpdate(input: DocumentUpdate & { now: Date; contentHash: string }): Promise<{
     document: DocumentSnapshot
     duplicate: boolean
   }> {
@@ -117,7 +131,12 @@ export class DrizzleDocumentStore implements DocumentStore {
         throw new Error('Document not found')
       }
       if (existingUpdate) {
-        return { document: current, duplicate: true }
+        const original = await tx
+          .select()
+          .from(documentVersions)
+          .where(and(eq(documentVersions.documentId, input.documentId), eq(documentVersions.version, existingUpdate.version)))
+          .get()
+        return { document: original ? versionToSnapshot(rowToVersion(original)) : current, duplicate: true }
       }
       if (current.version !== input.baseVersion) {
         throw new DocumentConflictError()
@@ -126,13 +145,14 @@ export class DrizzleDocumentStore implements DocumentStore {
       const next: DocumentSnapshot = {
         ...current,
         content: input.content,
+        contentHash: input.contentHash,
         version: current.version + 1,
         updatedAt: input.now,
       }
 
       await tx
         .update(documents)
-        .set({ content: next.content, version: next.version, updatedAt: next.updatedAt })
+        .set({ content: next.content, contentHash: next.contentHash, version: next.version, updatedAt: next.updatedAt })
         .where(eq(documents.id, input.documentId))
       await tx.insert(documentVersions).values({
         id: versionId(input.documentId, next.version),
@@ -140,6 +160,7 @@ export class DrizzleDocumentStore implements DocumentStore {
         version: next.version,
         title: next.title,
         content: next.content,
+        contentHash: next.contentHash,
         status: next.status,
         actorId: input.actorId,
         clientUpdateId: input.clientUpdateId,
@@ -202,6 +223,7 @@ function rowToSnapshot(row: DocumentRow): DocumentSnapshot {
     id: row.id,
     title: row.title,
     content: row.content,
+    contentHash: row.contentHash,
     status: row.status as DocumentStatus,
     version: row.version,
     createdAt: row.createdAt,
@@ -214,11 +236,25 @@ function rowToVersion(row: DocumentVersionRow): DocumentVersion {
     id: versionId(row.documentId, row.version),
     title: row.title,
     content: row.content,
+    contentHash: row.contentHash,
     status: row.status as DocumentStatus,
     version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.createdAt,
     actorId: row.actorId,
     clientUpdateId: row.clientUpdateId,
+  }
+}
+
+function versionToSnapshot(version: DocumentVersion): DocumentSnapshot {
+  return {
+    id: version.id.slice(0, version.id.lastIndexOf(':')),
+    title: version.title,
+    content: version.content,
+    status: version.status,
+    version: version.version,
+    contentHash: version.contentHash,
+    createdAt: version.createdAt,
+    updatedAt: version.updatedAt,
   }
 }

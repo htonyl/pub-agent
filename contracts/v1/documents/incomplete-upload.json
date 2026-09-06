@@ -1,0 +1,4 @@
+{
+  "request": { "method": "POST", "path": "/api/v1/documents/doc-1/yjs-updates", "headers": { "authorization": "Bearer <test-token>", "content-type": "application/json" }, "body": "{\"baseVersion\":1,\"clientUpdateId\":\"y-incomplete\",\"envelope\":{\"protocol\":\"yjs-text/v1\",\"updateId\":\"y-incomplete\",\"totalBytes\":8,\"chunkBytes\":4,\"chunks\":[\"AQID\"]}}" },
+  "response": { "status": 400, "headers": { "content-type": "application/json" }, "body": "{\"error\":\"totalBytes does not match complete chunks\"}" }
+}

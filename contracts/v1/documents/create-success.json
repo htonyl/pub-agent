@@ -1,0 +1,4 @@
+{
+  "request": { "method": "POST", "path": "/api/v1/documents", "headers": { "authorization": "Bearer <test-token>", "content-type": "application/json" }, "body": "{\"title\":\"Draft\",\"content\":\"Hello\",\"clientUpdateId\":\"create-1\"}" },
+  "response": { "status": 201, "headers": { "content-type": "application/json" }, "body": "{\"id\":\"doc-1\",\"version\":1,\"contentHash\":\"<sha256>\"}" }
+}

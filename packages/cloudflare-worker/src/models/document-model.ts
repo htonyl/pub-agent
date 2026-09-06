@@ -8,6 +8,7 @@ export type DocumentSnapshot = {
   content: string
   status: DocumentStatus
   version: number
+  contentHash: string
   createdAt: Date
   updatedAt: Date
 }
@@ -23,6 +24,7 @@ export type DocumentUpdate = {
   clientUpdateId: string
   baseVersion: number
   content: string
+  contentHash?: string
 }
 
 export type ReviewLink = {
@@ -40,11 +42,13 @@ export type DocumentStore = {
     actorId: string
     clientUpdateId: string
     now: Date
+    contentHash: string
   }): Promise<DocumentSnapshot>
   get(documentId: string): Promise<DocumentSnapshot | null>
   hasUpdate(documentId: string, clientUpdateId: string): Promise<boolean>
+  getUpdateAck(documentId: string, clientUpdateId: string): Promise<DocumentSnapshot | null>
   getVersion(documentId: string, version: number): Promise<DocumentVersion | null>
-  appendUpdate(input: DocumentUpdate & { now: Date }): Promise<{
+  appendUpdate(input: DocumentUpdate & { now: Date; contentHash: string }): Promise<{
     document: DocumentSnapshot
     duplicate: boolean
   }>
@@ -132,11 +136,17 @@ export class DocumentModel {
     chunkText(input.content)
     validateText(input.actorId, 'actorId', 200)
     validateText(input.clientUpdateId, 'clientUpdateId', 200)
-    return this.store.create({ ...input, now: input.now ?? new Date() })
+    return hashText(input.content).then((contentHash) =>
+      this.store.create({ ...input, contentHash, now: input.now ?? new Date() }),
+    )
   }
 
   get(documentId: string): Promise<DocumentSnapshot | null> {
     return this.store.get(documentId)
+  }
+
+  getUpdateAck(documentId: string, clientUpdateId: string): Promise<DocumentSnapshot | null> {
+    return this.store.getUpdateAck(documentId, clientUpdateId)
   }
 
   getVersion(documentId: string, version: number): Promise<DocumentVersion | null> {
@@ -161,16 +171,21 @@ export class DocumentModel {
     if (!current) {
       throw new Error('Document not found')
     }
-    if (await this.store.hasUpdate(input.documentId, input.clientUpdateId)) {
-      return { document: current, duplicate: true }
-    }
+    const duplicateAck = await this.store.getUpdateAck(input.documentId, input.clientUpdateId)
+    if (duplicateAck) return { document: duplicateAck, duplicate: true }
 
     const next = this.crdt.apply(current, input, input.now ?? new Date())
-    return this.store.appendUpdate({ ...input, content: next.content, now: next.updatedAt })
+    return hashText(next.content).then((contentHash) =>
+      this.store.appendUpdate({ ...input, content: next.content, contentHash, now: next.updatedAt }),
+    )
   }
 
   approve(documentId: string, now = new Date()): Promise<DocumentSnapshot> {
     return this.store.setStatus(documentId, 'finalized', now)
+  }
+
+  propose(documentId: string, now = new Date()): Promise<DocumentSnapshot> {
+    return this.store.setStatus(documentId, 'in_review', now)
   }
 
   review(documentId: string, token: string, id = token, now = new Date()): Promise<ReviewLink> {
@@ -187,4 +202,9 @@ function validateText(value: string, name: string, maxLength: number) {
   if (value.length > maxLength) {
     throw new Error(`${name} exceeds the maximum length of ${maxLength}`)
   }
+}
+
+export async function hashText(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }

@@ -22,12 +22,19 @@ The starter routes are:
 - `GET /counters/:name`
 - `POST /counters/:name/increment` with an optional JSON `{ "amount": 1 }`
 
-Document routes are available under both `/api/v1` and the lightweight
-`/mcp/v1` JSON contract. They include document creation, version reads, large
-replacement updates, approval, and review-link creation. The MCP-shaped
-surface is intentionally HTTP/JSON and does not claim to implement the MCP
-SDK. Document requests require an explicit comma-separated capability in the
-`x-pubagent-capabilities` header; the policy adapter denies by default.
+Document routes are available under both `/api/v1` and the compatibility REST
+aliases under `/mcp/v1`. They include document creation, immutable version
+reads, replacement updates, block operations/snapshots, bounded Yjs text
+updates, approval, and review-link creation. `POST /mcp/v1` is a small
+authenticated JSON-RPC MCP adapter supporting `initialize`, `tools/list`, and
+the document tools `create`, `read`, `apply-operation`, `snapshot`, `propose`,
+and `approve`.
+
+Document requests require a signed `Authorization: Bearer pa1...` token. The
+token is an HMAC-SHA-256 claim envelope verified with Web Crypto and the
+`PUBAGENT_AUTH_SECRET` Cloudflare secret binding. Missing or invalid tokens
+return 401; valid tokens without the required capability return 403. The old
+`x-pubagent-capabilities` header is not trusted.
 
 `GET /documents/:id` renders an HTML document page. JSON document and publish
 responses include a stable `permalink` field.

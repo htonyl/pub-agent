@@ -1,0 +1,4 @@
+{
+  "request": { "method": "POST", "path": "/api/v1/documents/doc-1/updates", "headers": { "authorization": "Bearer <test-token>", "content-type": "application/json" }, "body": "{\"baseVersion\":1,\"content\":\"Hello\",\"clientUpdateId\":\"update-1\"}" },
+  "response": { "status": 200, "headers": { "content-type": "application/json" }, "body": "{\"duplicate\":true,\"version\":2}" }
+}

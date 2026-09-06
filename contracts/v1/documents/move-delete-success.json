@@ -1,0 +1,4 @@
+{
+  "request": { "method": "POST", "path": "/api/v1/documents/doc-1/operations", "headers": { "authorization": "Bearer <test-token>", "content-type": "application/json" }, "body": "{\"operation\":{\"type\":\"move\",\"actorId\":\"agent\",\"clientId\":\"client-1\",\"opId\":\"op-3\",\"logicalClock\":3,\"baseSequence\":2,\"blockId\":\"block-1\",\"afterBlockId\":null}}" },
+  "response": { "status": 200, "headers": { "content-type": "application/json" }, "body": "{\"duplicate\":false}" }
+}

@@ -13,7 +13,7 @@ import {
 class InMemoryDocumentStore implements DocumentStore {
   private readonly documents = new Map<string, DocumentSnapshot>()
   private readonly versions = new Map<string, DocumentVersion>()
-  private readonly updates = new Map<string, string>()
+  private readonly updates = new Map<string, number>()
 
   create(input: {
     id: string
@@ -22,6 +22,7 @@ class InMemoryDocumentStore implements DocumentStore {
     actorId: string
     clientUpdateId: string
     now: Date
+    contentHash: string
   }) {
     const document: DocumentSnapshot = {
       id: input.id,
@@ -29,12 +30,13 @@ class InMemoryDocumentStore implements DocumentStore {
       content: input.content,
       status: 'draft',
       version: 1,
+      contentHash: input.contentHash,
       createdAt: input.now,
       updatedAt: input.now,
     }
     this.documents.set(input.id, document)
     this.versions.set(`${input.id}:1`, { ...document, actorId: input.actorId, clientUpdateId: input.clientUpdateId })
-    this.updates.set(`${input.id}:${input.clientUpdateId}`, input.id)
+    this.updates.set(`${input.id}:${input.clientUpdateId}`, 1)
     return Promise.resolve(document)
   }
 
@@ -46,11 +48,16 @@ class InMemoryDocumentStore implements DocumentStore {
     return Promise.resolve(this.updates.has(`${documentId}:${clientUpdateId}`))
   }
 
+  getUpdateAck(documentId: string, clientUpdateId: string) {
+    const version = this.updates.get(`${documentId}:${clientUpdateId}`)
+    return Promise.resolve(version ? this.versions.get(`${documentId}:${version}`) ?? null : null)
+  }
+
   getVersion(documentId: string, version: number) {
     return Promise.resolve(this.versions.get(`${documentId}:${version}`) ?? null)
   }
 
-  async appendUpdate(input: DocumentUpdate & { now: Date }) {
+  async appendUpdate(input: DocumentUpdate & { now: Date; contentHash: string }) {
     const current = this.documents.get(input.documentId)
     if (!current) throw new Error('Document not found')
     if (this.updates.has(`${input.documentId}:${input.clientUpdateId}`)) {
@@ -58,14 +65,14 @@ class InMemoryDocumentStore implements DocumentStore {
     }
     if (input.baseVersion !== current.version) throw new DocumentConflictError()
 
-    const document = { ...current, content: input.content, version: current.version + 1, updatedAt: input.now }
+    const document = { ...current, content: input.content, contentHash: input.contentHash ?? current.contentHash, version: current.version + 1, updatedAt: input.now }
     this.documents.set(input.documentId, document)
     this.versions.set(`${input.documentId}:${document.version}`, {
       ...document,
       actorId: input.actorId,
       clientUpdateId: input.clientUpdateId,
     })
-    this.updates.set(`${input.documentId}:${input.clientUpdateId}`, input.documentId)
+    this.updates.set(`${input.documentId}:${input.clientUpdateId}`, document.version)
     return { document, duplicate: false }
   }
 
