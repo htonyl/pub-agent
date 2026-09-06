@@ -41,6 +41,12 @@ Technical specifications and technical decisions are maintained in
 
 ## Reading order
 
+For ongoing feature work, start with the [living product spec](spec/README.md)
+and [feature workflow](../../.agents/skills/feature-workflow/SKILL.md).
+The existing PRD remains draft source material. Promote relevant requirements
+incrementally into the living spec with their agreement and implementation
+status recorded; an unreviewed PRD statement is not proof of shipped behavior.
+
 1. [Executive Summary](01-executive-summary/README.md)
 2. [User Experience & Functionality](02-user-experience-and-functionality/README.md)
 3. [AI System Requirements](03-ai-system-requirements/README.md)

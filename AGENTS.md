@@ -13,6 +13,14 @@ files may add constraints for their subtree, but must not weaken these rules.
 
 ## Before changing files
 
+- For product features and behavior changes, use the repository's
+  [feature-workflow skill](.agents/skills/feature-workflow/SKILL.md). Start at
+  the phase supported by existing evidence; do not restart settled discovery.
+- Agents maintain specs, local tickets, decision records, and completion
+  evidence. Ask developers for unresolved product decisions, not document
+  authoring or routine ticket approval. Follow the
+  [spec maintenance rules](docs/prd/spec/README.md).
+
 - Read the relevant files and inspect the repository status first.
 - State or record reasonable assumptions when requirements are ambiguous.
 - Keep the change narrowly scoped to the requested outcome; do not perform
