@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pub-agent-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "COUNTERS",
+        "class_name": "CounterDurableObject"
+      }
+    ]
+  },
+  "exports": {
+    "CounterDurableObject": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.sql"],
+      "fallthrough": true
+    }
+  ]
+}

@@ -1,4 +1,8 @@
 packages:
   - packages/web-storybook
+  - packages/cloudflare-worker
 allowBuilds:
   esbuild: false
+  workerd: true
+minimumReleaseAgeExclude:
+  - '@cloudflare/workers-types@5.20260906.1'
