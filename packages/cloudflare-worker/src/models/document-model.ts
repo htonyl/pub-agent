@@ -52,7 +52,12 @@ export type DocumentStore = {
     document: DocumentSnapshot
     duplicate: boolean
   }>
-  setStatus(documentId: string, status: DocumentStatus, now: Date): Promise<DocumentSnapshot>
+  setStatus(
+    documentId: string,
+    status: DocumentStatus,
+    now: Date,
+    expected?: { version: number; contentHash: string },
+  ): Promise<DocumentSnapshot>
   createReview(input: { id: string; documentId: string; token: string; now: Date }): Promise<ReviewLink>
 }
 
@@ -60,6 +65,13 @@ export class DocumentConflictError extends Error {
   constructor(message = 'Document base version is stale') {
     super(message)
     this.name = 'DocumentConflictError'
+  }
+}
+
+export class DocumentFinalizedError extends Error {
+  constructor(message = 'Finalized documents cannot be changed') {
+    super(message)
+    this.name = 'DocumentFinalizedError'
   }
 }
 
@@ -136,9 +148,22 @@ export class DocumentModel {
     chunkText(input.content)
     validateText(input.actorId, 'actorId', 200)
     validateText(input.clientUpdateId, 'clientUpdateId', 200)
-    return hashText(input.content).then((contentHash) =>
-      this.store.create({ ...input, contentHash, now: input.now ?? new Date() }),
-    )
+    const now = input.now ?? new Date()
+    return hashText(input.content).then(async (contentHash) => {
+      const existing = await this.getCreateAck(input.id, input.actorId, input.clientUpdateId)
+      if (existing) return this.assertCreateRetry(existing, input.title, input.content, contentHash)
+
+      try {
+        return await this.store.create({ ...input, contentHash, now })
+      } catch (error) {
+        // A concurrent retry can pass the read above before the first request
+        // commits. Re-read after a uniqueness failure and return the original
+        // result when the idempotency key identifies the same request.
+        const retry = await this.getCreateAck(input.id, input.actorId, input.clientUpdateId)
+        if (retry) return this.assertCreateRetry(retry, input.title, input.content, contentHash)
+        throw error
+      }
+    })
   }
 
   get(documentId: string): Promise<DocumentSnapshot | null> {
@@ -173,6 +198,7 @@ export class DocumentModel {
     }
     const duplicateAck = await this.store.getUpdateAck(input.documentId, input.clientUpdateId)
     if (duplicateAck) return { document: duplicateAck, duplicate: true }
+    if (current.status === 'finalized') throw new DocumentFinalizedError()
 
     const next = this.crdt.apply(current, input, input.now ?? new Date())
     return hashText(next.content).then((contentHash) =>
@@ -180,11 +206,18 @@ export class DocumentModel {
     )
   }
 
-  approve(documentId: string, now = new Date()): Promise<DocumentSnapshot> {
-    return this.store.setStatus(documentId, 'finalized', now)
+  approve(documentId: string, expectedVersion: number, expectedContentHash: string, now = new Date()): Promise<DocumentSnapshot> {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      throw new Error('expectedVersion must be a positive integer')
+    }
+    validateText(expectedContentHash, 'expectedContentHash', 200)
+    return this.store.setStatus(documentId, 'finalized', now, { version: expectedVersion, contentHash: expectedContentHash })
   }
 
-  propose(documentId: string, now = new Date()): Promise<DocumentSnapshot> {
+  async propose(documentId: string, now = new Date()): Promise<DocumentSnapshot> {
+    const current = await this.store.get(documentId)
+    if (!current) throw new Error('Document not found')
+    if (current.status === 'finalized') throw new DocumentFinalizedError()
     return this.store.setStatus(documentId, 'in_review', now)
   }
 
@@ -192,6 +225,25 @@ export class DocumentModel {
     validateText(token, 'token', 200)
     validateText(id, 'id', 200)
     return this.store.createReview({ id, documentId, token, now })
+  }
+
+  private async getCreateAck(documentId: string, actorId: string, clientUpdateId: string): Promise<DocumentSnapshot | null> {
+    const version = await this.store.getVersion(documentId, 1)
+    if (!version || version.actorId !== actorId || version.clientUpdateId !== clientUpdateId) return null
+    const { actorId: _actorId, clientUpdateId: _clientUpdateId, ...snapshot } = version
+    return { ...snapshot, id: documentId }
+  }
+
+  private assertCreateRetry(
+    existing: DocumentSnapshot,
+    title: string,
+    content: string,
+    contentHash: string,
+  ): DocumentSnapshot {
+    if (existing.title !== title || existing.content !== content || existing.contentHash !== contentHash) {
+      throw new DocumentConflictError('Document creation key was reused with different content')
+    }
+    return existing
   }
 }
 
@@ -207,4 +259,9 @@ function validateText(value: string, name: string, maxLength: number) {
 export async function hashText(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+/** Stable namespace key for create retries without exposing actor credentials. */
+export async function deriveDocumentId(actorId: string, clientUpdateId: string): Promise<string> {
+  return `doc-${await hashText(`${actorId}\u0000${clientUpdateId}`)}`
 }

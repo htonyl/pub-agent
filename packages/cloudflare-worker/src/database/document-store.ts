@@ -12,6 +12,7 @@ import {
 } from './schema'
 import {
   DocumentConflictError,
+  DocumentFinalizedError,
   type DocumentSnapshot,
   type DocumentStatus,
   type DocumentStore,
@@ -138,6 +139,9 @@ export class DrizzleDocumentStore implements DocumentStore {
           .get()
         return { document: original ? versionToSnapshot(rowToVersion(original)) : current, duplicate: true }
       }
+      if (current.status === 'finalized') {
+        throw new DocumentFinalizedError()
+      }
       if (current.version !== input.baseVersion) {
         throw new DocumentConflictError()
       }
@@ -179,14 +183,31 @@ export class DrizzleDocumentStore implements DocumentStore {
     })
   }
 
-  async setStatus(documentId: string, status: DocumentStatus, now: Date): Promise<DocumentSnapshot> {
-    const current = await this.get(documentId)
-    if (!current) {
-      throw new Error('Document not found')
-    }
+  async setStatus(
+    documentId: string,
+    status: DocumentStatus,
+    now: Date,
+    expected?: { version: number; contentHash: string },
+  ): Promise<DocumentSnapshot> {
+    return this.db.transaction(async (tx) => {
+      const currentRow = await tx.select().from(documents).where(eq(documents.id, documentId)).get()
+      const current = currentRow ? rowToSnapshot(currentRow) : null
+      if (!current) {
+        throw new Error('Document not found')
+      }
+      if (current.status === 'finalized' && status === 'in_review') {
+        throw new DocumentFinalizedError()
+      }
+      if (
+        expected &&
+        (current.version !== expected.version || current.contentHash !== expected.contentHash)
+      ) {
+        throw new DocumentConflictError('Document version or content hash is stale')
+      }
 
-    await this.db.update(documents).set({ status, updatedAt: now }).where(eq(documents.id, documentId))
-    return { ...current, status, updatedAt: now }
+      await tx.update(documents).set({ status, updatedAt: now }).where(eq(documents.id, documentId))
+      return { ...current, status, updatedAt: now }
+    })
   }
 
   async createReview(input: { id: string; documentId: string; token: string; now: Date }): Promise<ReviewLink> {

@@ -1,6 +1,7 @@
 import type { Context } from 'hono'
 
 import type { AppEnv } from '../env'
+import { deriveDocumentId, DocumentConflictError, DocumentFinalizedError } from '../models/document-model'
 import type { DocumentOperation } from '../models/document-crdt'
 import { documentPolicy, type DocumentCapability } from '../policy/document-policy'
 import { renderDocument } from '../views/document-view'
@@ -43,6 +44,9 @@ export async function handleMcpRequest(c: McpContext) {
     return c.json({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result, isError: false } })
   } catch (error) {
     if (error instanceof McpAuthorizationError) return authError(c, id, error.status)
+    if (error instanceof DocumentConflictError || error instanceof DocumentFinalizedError) {
+      return c.json({ jsonrpc: '2.0', id, error: { code: -32009, message: error.message } })
+    }
     const message = error instanceof Error ? error.message : 'Tool call failed'
     return c.json({ jsonrpc: '2.0', id, error: { code: -32000, message } }, 400)
   }
@@ -58,8 +62,9 @@ async function callTool(c: McpContext, name: string, args: Record<string, unknow
 
   if (name === 'create') {
     if (typeof args.title !== 'string' || typeof args.content !== 'string' || typeof args.clientUpdateId !== 'string') throw new Error('title, content, and clientUpdateId are required')
-    const id = crypto.randomUUID()
-    const document = await c.env.DOCUMENTS.get(c.env.DOCUMENTS.idFromName(id)).createDocument({ documentId: id, title: args.title, content: args.content, clientUpdateId: args.clientUpdateId, actorId: authorization.principal?.subject ?? 'unknown' })
+    const actorId = authorization.principal?.subject ?? 'unknown'
+    const id = await deriveDocumentId(actorId, args.clientUpdateId)
+    const document = await c.env.DOCUMENTS.get(c.env.DOCUMENTS.idFromName(id)).createDocument({ documentId: id, title: args.title, content: args.content, clientUpdateId: args.clientUpdateId, actorId })
     return renderDocument(document, origin)
   }
   if (!documentId) throw new Error('documentId is required')
@@ -76,10 +81,21 @@ async function callTool(c: McpContext, name: string, args: Record<string, unknow
   }
   if (name === 'apply-operation') {
     if (!isObject(args.operation)) throw new Error('operation is required')
-    return (stub as unknown as { applyOperation(operation: DocumentOperation): Promise<Record<string, unknown>> }).applyOperation(args.operation as DocumentOperation)
+    return (stub as unknown as {
+      applyOperation(input: { documentId: string; actorId: string; operation: DocumentOperation }): Promise<Record<string, unknown>>
+    }).applyOperation({
+      documentId,
+      actorId: authorization.principal?.subject ?? 'unknown',
+      operation: args.operation as DocumentOperation,
+    })
   }
   if (name === 'propose') return stub.propose(documentId)
-  if (name === 'approve') return stub.approve(documentId)
+  if (name === 'approve') {
+    if (!Number.isInteger(args.expectedVersion) || typeof args.expectedContentHash !== 'string' || args.expectedContentHash.length === 0) {
+      throw new Error('expectedVersion and expectedContentHash are required')
+    }
+    return stub.approve(documentId, args.expectedVersion as number, args.expectedContentHash)
+  }
   throw new Error('Unknown tool')
 }
 

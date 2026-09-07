@@ -8,6 +8,7 @@ import type { CloudflareBindings } from '../env'
 import {
   DocumentModel,
   DocumentConflictError,
+  DocumentFinalizedError,
   type DocumentSnapshot,
   type DocumentUpdate,
   type DocumentVersion,
@@ -51,7 +52,7 @@ export class DocumentDurableObject extends DurableObject {
     clientUpdateId: string
   }): Promise<DocumentSnapshot> {
     const document = await this.model.create({ ...input, id: input.documentId })
-    await this.state.storage.put('yjs-text-snapshot', snapshotYjsText(createYjsTextDocument(document.content)))
+    await this.ensureYjsTextSnapshot(document.content)
     return document
   }
 
@@ -84,9 +85,12 @@ export class DocumentDurableObject extends DurableObject {
     return result
   }
 
-  async applyOperation(operation: DocumentOperation) {
+  async applyOperation(input: { documentId: string; actorId: string; operation: DocumentOperation }) {
+    const document = await this.model.get(input.documentId)
+    if (!document) throw new Error('Document not found')
+    if (document.status === 'finalized') throw new DocumentFinalizedError()
     const crdt = await this.getOperationCrdt()
-    const result = crdt.apply(operation)
+    const result = crdt.apply({ ...input.operation, actorId: input.actorId })
     if (!result.duplicate) await this.state.storage.put('document-operation-history', crdt.updatesSince(0))
     return result
   }
@@ -103,6 +107,7 @@ export class DocumentDurableObject extends DurableObject {
     const doc = await this.getYjsTextDocument(document.content)
     const existing = await this.model.getUpdateAck(input.documentId, input.clientUpdateId)
     if (existing) return { document: existing, duplicate: true, yjs: snapshotYjsText(doc) }
+    if (document.status === 'finalized') throw new DocumentFinalizedError()
     if (input.baseVersion !== document.version) throw new DocumentConflictError()
     const stagedDoc = restoreYjsText(snapshotYjsText(doc))
     const yjs = applyYjsTextUpdate(stagedDoc, input.envelope)
@@ -126,8 +131,8 @@ export class DocumentDurableObject extends DurableObject {
     return snapshotYjsText(await this.getYjsTextDocument(document.content))
   }
 
-  approve(documentId: string): Promise<DocumentSnapshot> {
-    return this.model.approve(documentId)
+  approve(documentId: string, expectedVersion: number, expectedContentHash: string): Promise<DocumentSnapshot> {
+    return this.model.approve(documentId, expectedVersion, expectedContentHash)
   }
 
   propose(documentId: string): Promise<DocumentSnapshot> {
@@ -189,6 +194,18 @@ export class DocumentDurableObject extends DurableObject {
       this.yjsTextDocument = this.state.storage.get<YjsTextSnapshot>('yjs-text-snapshot').then((snapshot) =>
         snapshot ? restoreYjsText(snapshot) : createYjsTextDocument(fallbackText),
       )
+    }
+    return this.yjsTextDocument
+  }
+
+  private ensureYjsTextSnapshot(fallbackText: string): Promise<import('yjs').Doc> {
+    if (!this.yjsTextDocument) {
+      this.yjsTextDocument = this.state.storage.get<YjsTextSnapshot>('yjs-text-snapshot').then(async (snapshot) => {
+        if (snapshot) return restoreYjsText(snapshot)
+        const document = createYjsTextDocument(fallbackText)
+        await this.state.storage.put('yjs-text-snapshot', snapshotYjsText(document))
+        return document
+      })
     }
     return this.yjsTextDocument
   }

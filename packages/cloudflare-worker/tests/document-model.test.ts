@@ -76,9 +76,18 @@ class InMemoryDocumentStore implements DocumentStore {
     return { document, duplicate: false }
   }
 
-  async setStatus(documentId: string, status: 'draft' | 'in_review' | 'finalized', now: Date) {
+  async setStatus(
+    documentId: string,
+    status: 'draft' | 'in_review' | 'finalized',
+    now: Date,
+    expected?: { version: number; contentHash: string },
+  ) {
     const current = this.documents.get(documentId)
     if (!current) throw new Error('Document not found')
+    if (current.status === 'finalized' && status === 'in_review') throw new Error('Finalized documents cannot be changed')
+    if (expected && (current.version !== expected.version || current.contentHash !== expected.contentHash)) {
+      throw new DocumentConflictError('Document version or content hash is stale')
+    }
     const document = { ...current, status, updatedAt: now }
     this.documents.set(documentId, document)
     return document
@@ -114,5 +123,30 @@ describe('DocumentModel', () => {
     await expect(
       model.applyUpdate({ documentId: 'doc-1', actorId: 'human', clientUpdateId: 'edit-2', baseVersion: 1, content: 'three' }),
     ).rejects.toThrow('Document base version is stale')
+  })
+
+  it('rejects updates after finalization and requires an exact approval version and hash', async () => {
+    const store = new InMemoryDocumentStore()
+    const model = new DocumentModel(store)
+    const document = await model.create({ id: 'doc-1', title: 'Draft', content: 'one', actorId: 'human', clientUpdateId: 'create-1' })
+
+    const update = { documentId: 'doc-1', actorId: 'human', clientUpdateId: 'edit-1', baseVersion: 1, content: 'two' }
+    const updated = await model.applyUpdate(update)
+    await expect(model.approve('doc-1', document.version, 'wrong-hash')).rejects.toThrow('version or content hash is stale')
+    await expect(model.approve('doc-1', updated.document.version, updated.document.contentHash)).resolves.toMatchObject({ status: 'finalized' })
+    await expect(model.applyUpdate(update)).resolves.toMatchObject({ duplicate: true, document: { version: 2 } })
+    await expect(model.applyUpdate({ ...update, clientUpdateId: 'edit-2', baseVersion: 2, content: 'three' })).rejects.toThrow(
+      'Finalized documents cannot be changed',
+    )
+    await expect(model.propose('doc-1')).rejects.toThrow('Finalized documents cannot be changed')
+  })
+
+  it('returns the original document for a repeated create key and rejects changed payloads', async () => {
+    const model = new DocumentModel(new InMemoryDocumentStore())
+    const input = { id: 'doc-1', title: 'Draft', content: 'one', actorId: 'human', clientUpdateId: 'create-1' }
+    const first = await model.create(input)
+    await model.applyUpdate({ documentId: 'doc-1', actorId: 'human', clientUpdateId: 'edit-1', baseVersion: 1, content: 'two' })
+    await expect(model.create(input)).resolves.toEqual(first)
+    await expect(model.create({ ...input, content: 'changed' })).rejects.toThrow('creation key was reused')
   })
 })
