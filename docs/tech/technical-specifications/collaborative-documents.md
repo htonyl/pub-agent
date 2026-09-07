@@ -13,19 +13,23 @@ dependency-light product web application.
 - `DocumentDurableObject` owns the SQLite-backed document store and its
   document-scoped WebSocket room.
 - Versioned HTTP and MCP-shaped routes publish, read, update, approve, and
-  create a stable review permalink.
+  create review-link references; review-link consumption is still pending.
 - A responsive human review/editor surface demonstrates provenance, comments,
-  version history, exact-version approval, and collaboration connection states.
+  version history, exact-version approval, and collaboration connection states
+  in an in-memory mock.
 - The HTML reader escapes content server-side and renders a minimal human
   document view.
 - Existing counter routes and bindings remain intact.
 
 The current HTTP persistence adapter still stores a text payload for the
-smallest vertical slice. Block operations and replayable snapshots now use the
-same `DocumentCrdt` interface inside the document object, while bounded text
-edits use a Yjs `Y.Text` adapter. Yjs binary updates are accepted only as
-complete, base64 chunk envelopes; the document object remains authoritative for
-authorization, server sequences, versions, approvals, and replay.
+smallest vertical slice. Block operations and replayable snapshots use the
+`DocumentCrdt` interface inside the document object, while bounded text edits
+use a Yjs `Y.Text` adapter. These representations are not yet one versioned
+block manifest: block history and Yjs snapshots remain separate from the text
+head used by approval. Yjs binary updates are accepted only as complete,
+base64 chunk envelopes; the document object remains authoritative for
+authorization and the versioned text path, while full cross-adapter replay and
+approval are staged follow-up work.
 
 The Worker uses a signed HMAC bearer-token seam until a workspace access object
 is introduced. `PUBAGENT_AUTH_SECRET` is the exact integration point for the

@@ -1,9 +1,18 @@
 # Capability map
 
-No capabilities have been promoted to maintained specs yet. Start from
-[user experience and functionality](../../02-user-experience-and-functionality/README.md)
-and [AI requirements](../../03-ai-system-requirements/README.md) for draft source
-material. Inspect implementation separately before claiming coverage.
+Capabilities are the maintained product-level entry points. Each capability
+states the behavior the product promises, then records implementation evidence
+without treating an implementation detail as product intent.
+
+## Published capabilities
+
+| Capability | Responsibility | Status |
+| --- | --- | --- |
+| [Collaborative documents](collaborative-documents.md) | Let humans and authorized agents create, review, version, read, and collaborate on durable text documents with provenance and lifecycle protection. | Foundation implemented; safety verification gaps and product expansion are tracked in the linked work record. |
+
+Start with the capability document for behavior and current coverage. Use the
+[local work record](../../../work/collaborative-documents/README.md) for the
+active delivery state and tickets.
 
 When first working on a capability, create `<capability>.md` here using the
 [spec maintenance rules](../README.md). Add a link and one-sentence responsibility
