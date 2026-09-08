@@ -38,12 +38,14 @@ Create routing now derives a stable actor/key document ID, and the model returns
 the immutable version-1 acknowledgement for equivalent retries while rejecting
 changed payloads within one actor scope. The create transaction callback also
 executes synchronously under durable-sqlite. Focused tests and the opt-in
-runtime scenario cover durable persistence, eviction recovery, and concurrent
-equivalent creates; cross-actor route conflict cases and MCP retry parity remain
-outstanding.
+runtime scenario cover durable persistence, eviction recovery, concurrent
+equivalent creates, cross-actor MCP scoping, conflicting-key rejection, and
+MCP retry parity. A focused model test also simulates a durable write followed
+by a transient response failure and verifies acknowledgement recovery; a
+production fault-injection scenario remains undefined.
 
-Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (25 passed),
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (28 passed),
 `CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
 `git diff --check` (passed). The opt-in runtime scenario covers concurrent
-equivalent creates and storage preservation across Durable Object eviction.
-MCP retry parity remains outside the scenario.
+equivalent creates, storage preservation across Durable Object eviction, and
+MCP retry/conflict/cross-actor behavior.

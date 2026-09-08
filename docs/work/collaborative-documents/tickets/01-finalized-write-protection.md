@@ -38,13 +38,15 @@ Yjs, and block mutations. Focused Worker tests pass, and the storage transaction
 callbacks now execute synchronously so a rejected or failed write cannot race a
 premature transaction commit. The opt-in runtime scenario also exercises these
 finalized paths through a real Durable Object and SQLite store, including
-eviction recovery; complete unchanged-history assertions and every block
-operation variant remain outstanding.
+eviction recovery and every block operation variant. It compares the document,
+version history, Yjs snapshot, and operation snapshot before and after rejected
+writes and confirms that no version 3 is created.
 
-Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (25 passed),
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (28 passed),
 `CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
 `git diff --check` (passed). The opt-in runtime scenario passed through the
-real routes and Durable Object for replacement, Yjs, and block rejection:
+real routes and Durable Object for replacement, Yjs, and all block-operation
+variant rejections:
 `PUBAGENT_RUN_WRANGLER_INTEGRATION=1 ./node_modules/.bin/vitest run
-tests/document-worker-integration.test.ts`. The remaining evidence gap is
-authenticated WebSocket mutation coverage.
+tests/document-worker-integration.test.ts`. Authenticated WebSocket mutation
+coverage remains outside scope because the application protocol is not defined.

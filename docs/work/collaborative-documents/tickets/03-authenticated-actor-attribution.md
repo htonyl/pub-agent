@@ -38,12 +38,13 @@ HTTP and MCP block operations now overwrite client actor fields with the
 authenticated principal before model application. Unsupported WebSocket
 application messages now close with policy code `1008` instead of being echoed
 or broadcast; the room still accepts an authorized upgrade and sends `ready`.
-Focused route/model and WebSocket seam checks pass; replacement/Yjs provenance
-and authenticated WebSocket session tests remain to be proved in Durable
-Object integration.
+Focused route/model and WebSocket seam checks pass; the opt-in runtime scenario
+now proves authorized and unauthorized WebSocket handshakes plus fail-closed
+application messages. Mutation attribution over WebSocket remains undefined
+until its application protocol is specified.
 
-Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (25 passed),
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (28 passed),
 `CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
 `git diff --check` (passed). The opt-in runtime scenario proves bearer
-attribution on a real block operation; authenticated WebSocket session
-identity remains outside the scenario.
+attribution on a real block operation and WebSocket authorization/fail-closed
+behavior; authenticated WebSocket mutation identity remains outside scope.

@@ -41,14 +41,15 @@ implementation; this record is maintained by agents.
 - **Critique:** complete for the available repository evidence
 - **Specify:** complete for the rules and explicit safety requirements
 - **Implement:** present for the current CD-001 through CD-004 code scope
-- **Verify:** passed for focused evidence and the opt-in real Worker/Durable Object/SQLite scenario; authenticated WebSocket and MCP retry gaps remain
+- **Verify:** passed for focused evidence and the opt-in real Worker/Durable Object/SQLite scenario; authenticated WebSocket mutation remains undefined
 - **Complete:** not ready
 
-The earliest remaining evidence gaps are authenticated WebSocket session
-coverage and MCP create-retry parity. A fresh agent should start by reviewing
-those CD-003 and CD-004 acceptance scenarios, then continue in dependency
-order. Do not restart discovery unless verification reveals a new product
-decision or contradicts a settled rule.
+The earliest remaining evidence gap is the authenticated WebSocket mutation
+contract and its principal attribution. MCP create-retry parity, approval/update
+serialization, and WebSocket authorization/fail-closed behavior now have
+runtime evidence. A fresh agent should start by reviewing the CD-003 protocol
+dependency, then continue in dependency order. Do not restart discovery unless
+verification reveals a new product decision or contradicts a settled rule.
 
 ## Findings from comparison
 
@@ -81,8 +82,10 @@ deterministic create retries. Focused tests cover these model and route seams.
 The WebSocket remains an authorized room seam (`ready`), but application
 messages now fail closed with a policy close until a validated collaboration
 protocol exists. The safety slice has real Worker/Durable Object/SQLite,
-restart, and concurrent-create evidence; authenticated WebSocket session and
-MCP retry parity evidence remain open.
+restart, concurrent-create, MCP retry/conflict/actor-scoping, approval/update
+race, and WebSocket authorization/fail-closed evidence. Authenticated
+WebSocket mutation and principal attribution remain open because the
+application protocol is not defined.
 
 ### Web application evidence
 
@@ -154,12 +157,15 @@ with actual tests and update implementation statuses on disk.
 focused evidence are present, including synchronous transaction callback
 coverage and the fail-closed WebSocket seam. A test-only Wrangler harness now
 exercises the HTTP routes, Durable Object, SQLite migrations, retry race,
-approval compare-and-set, actor attribution, finalized replacement/Yjs/block
-guards, and storage-preserving eviction/restart path in one runtime scenario.
+approval compare-and-set, actor attribution, finalized replacement/Yjs/all
+block-operation guards, MCP retry/conflict/cross-actor behavior, WebSocket
+authorization/fail-closed behavior, and storage-preserving eviction/restart
+path in one runtime scenario.
 The harness is opt-in because it needs loopback binding. It passed in a
 loopback-enabled run; the default restricted invocation still reports `EPERM`
-for that binding. Keep the four tickets in `verify` until their remaining
-authenticated WebSocket and MCP retry gaps are closed or explicitly accepted.
+for that binding. Keep the four tickets in `verify` until the authenticated
+WebSocket mutation contract and production fault-injection coverage are closed
+or explicitly accepted.
 Product expansion tickets stay blocked until that verification gate is
 resolved. A ticket is not done because code exists; its acceptance scenarios
 must pass and be recorded here and in the ticket.
@@ -189,7 +195,7 @@ remaining deployment/identity limitations explicitly.
 
 ## Verification results
 
-- `CI=true pnpm --filter @pubagent/cloudflare-worker test` — 25 tests passed,
+- `CI=true pnpm --filter @pubagent/cloudflare-worker test` — 28 tests passed,
   1 optional Wrangler integration test skipped by default, including
   synchronous transaction callback and fail-closed WebSocket seam tests.
 - `CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` — passed.
@@ -199,16 +205,19 @@ remaining deployment/identity limitations explicitly.
 - `PUBAGENT_RUN_WRANGLER_INTEGRATION=1 ./node_modules/.bin/vitest run
   tests/document-worker-integration.test.ts --reporter verbose` — passed
   with the real Worker, Durable Object, SQLite migrations, retry race,
-  approval, attribution, finalized-write, and eviction/restart scenario.
+  approval/update race, attribution, finalized-write, MCP retry/conflict,
+  WebSocket authorization/fail-closed, and eviction/restart scenario.
 - `PUBAGENT_RUN_WRANGLER_INTEGRATION=1 ./node_modules/.bin/vitest run
   tests/document-worker-integration.test.ts` — skipped by the preflight probe:
   `listen EPERM: operation not permitted 127.0.0.1`.
 
 These checks establish focused model/route, type, web smoke, design, and local
 Worker/Durable Object/SQLite evidence. They do not establish deployed behavior,
-authenticated WebSocket protocol coverage, MCP retry parity, or unified block
-and Yjs version semantics. The default restricted invocation still skips the
-Wrangler scenario because the environment denies loopback binding.
+authenticated WebSocket mutation protocol coverage, production fault-injection
+for post-create failure recovery, or unified block and Yjs version semantics.
+The default
+restricted invocation still skips the Wrangler scenario because the environment
+denies loopback binding.
 
 ## Verification critique
 
@@ -216,21 +225,24 @@ The safety code is present at the intended server boundaries, and the new
 integration test passes the runtime scenarios needed to close the SQL and
 Durable Object gap: finalized replacement, Yjs, and block rejection through
 the real routes and Durable Object, exact approval version/hash failures and
-success, bearer actor attribution, concurrent create retries, and
-storage-preserving object eviction/restart. CD-003's authenticated WebSocket
-session identity and CD-004's MCP retry parity remain outside this HTTP/runtime
-scenario.
+success, bearer actor attribution, concurrent create retries, approval/update
+serialization, MCP create retry/conflict/cross-actor behavior, WebSocket
+authorization/fail-closed behavior, and storage-preserving object
+eviction/restart. CD-003's authenticated WebSocket mutation identity remains
+outside this scenario because the application protocol is not defined.
 
 The block CRDT and Yjs snapshot are still separate from the persisted text head,
 so approval currently protects the versioned text path rather than a unified
 block manifest. Update-key payload equivalence for ordinary replacement
-updates is also still a partial rule. These are recorded as follow-up work and
-must not be described as verified product behavior.
+updates is enforced in the model and transactional store, with full runtime
+coverage now exercised. Production fault-injection remains a follow-up because
+the deployment seam is not defined.
 
 ## Next action
 
 Close or explicitly accept the remaining CD-001 through CD-004 evidence gaps,
-especially authenticated WebSocket session tests and MCP retry parity. Then
+especially the authenticated WebSocket mutation contract and production
+fault-injection coverage. Then
 unblock [CD-005](tickets/05-validated-collaboration-room.md) and
 [CD-006](tickets/06-canonical-block-version-integration.md) before expanding
 review, hierarchy, or the broader MCP surface.

@@ -37,10 +37,11 @@ Implemented with expected version and content hash compare-and-set in the store
 and model/route validation. The approval transaction callback now uses the
 synchronous durable-sqlite contract. Focused tests and the opt-in real
 SQLite/Durable Object stale, hash-mismatch, and exact approval scenario pass;
-approval-versus-update race coverage remains outstanding.
+approval-versus-update race coverage now proves serialized outcomes.
 
-Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (25 passed),
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (28 passed),
 `CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
 `git diff --check` (passed). The opt-in runtime scenario passed stale,
 hash-mismatched, and exact approval requests through SQLite-backed Durable
-Object storage. A concurrent approval/update race test remains outstanding.
+Object storage. The concurrent approval/update race test passes with exactly
+one serialized winner and one conflict.
