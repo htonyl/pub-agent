@@ -33,5 +33,11 @@ validation and assert conflict responses.
 ## Results
 
 Implemented with expected version and content hash compare-and-set in the store
-and model/route validation. Focused tests pass; real SQL transaction,
+and model/route validation. The approval transaction callback now uses the
+synchronous durable-sqlite contract. Focused tests pass; real SQL transaction,
 concurrency, and Durable Object evidence remains outstanding.
+
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (24 passed),
+`CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
+`git diff --check` (passed). Wrangler local Durable Object smoke testing was
+skipped because the restricted environment denied loopback binding.

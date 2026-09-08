@@ -8,8 +8,10 @@ Dependencies: none
 
 A create request's client update ID is a durable idempotency key scoped to the
 authenticated principal and request intent. Equivalent retries return the same
-document ID and version. Reusing a key for a different title/content or actor
-does not create another document and returns a deterministic conflict.
+document ID and version. The same key used by different principals addresses
+independent actor-scoped document IDs; it does not conflict solely because the
+key text matches. Reusing a key for a different title/content within one actor
+scope returns a deterministic conflict without creating another document.
 
 ## Acceptance scenarios
 
@@ -19,8 +21,9 @@ does not create another document and returns a deterministic conflict.
   the same key and equivalent payload, then the original document is recovered.
 - Given key `K` already used for one payload, when a different title or content
   is submitted, then the request fails without creating or mutating a document.
-- Given key `K` used by principal `alice`, when principal `bob` submits it, then
-  the request cannot retrieve or mutate Alice's document through idempotency.
+- Given key `K` used by principal `alice`, when principal `bob` submits the same
+  key, then Bob receives an independently scoped document identity and cannot
+  retrieve or mutate Alice's document through idempotency.
 - Existing update idempotency and stable publish response behavior continue to
   pass.
 
@@ -33,5 +36,12 @@ scoping. Exercise the transaction/recovery path supported by the store.
 
 Create routing now derives a stable actor/key document ID, and the model returns
 the immutable version-1 acknowledgement for equivalent retries while rejecting
-changed payloads. Focused tests pass; durable persistence, restart recovery,
-concurrency, and MCP retry evidence remain outstanding.
+changed payloads within one actor scope. The create transaction callback also
+executes synchronously under durable-sqlite. Focused tests pass; durable
+persistence, restart recovery, concurrency, cross-actor route, and MCP retry
+evidence remain outstanding.
+
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (24 passed),
+`CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
+`git diff --check` (passed). Wrangler local Durable Object smoke testing was
+skipped because the restricted environment denied loopback binding.

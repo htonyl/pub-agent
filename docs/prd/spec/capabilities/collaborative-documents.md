@@ -9,8 +9,8 @@ a block CRDT module, a bounded Yjs adapter, signed bearer authorization, and
 document-scoped WebSocket plumbing. The current worktree also implements
 finalized-write rejection, exact approval preconditions, principal-bound block
 attribution, and deterministic create retries. Those safety paths have focused
-model and route evidence, but not yet complete Durable Object, SQL, restart, or
-WebSocket coverage.
+model, route, storage-transaction, and WebSocket-seam evidence, but not yet
+complete Durable Object, SQL, restart, or authenticated WebSocket coverage.
 
 ## Purpose and actors
 
@@ -59,7 +59,9 @@ authorization, persistence, review links, or WebSocket collaboration work.
    conflict/resync states, review, restore-as-new-version, and exact-version
    approval as a UI concept.
 6. Production collaboration remains deferred: the current WebSocket only
-   creates an authorized room connection, emits `ready`, and echoes messages.
+   creates an authorized room connection and emits `ready`; unsupported
+   application messages close the session with policy code `1008` until a
+   validated protocol exists.
 
 ## Observable rules
 
@@ -81,7 +83,7 @@ not mean deployed or production-ready.
 | DOC-010 | Canonical document structure is typed, ordered blocks with stable block IDs, provenance, tombstones for deletes, deterministic ordering, and UTF-8-bounded chunks. | agreed | partial; pure `DocumentCrdt` foundation is tested, but persisted document state remains text-first |
 | DOC-011 | Block operations are validated before assigning a document-local sequence. Duplicate `opId` replay returns the original acknowledgement; causal gaps require resync. | agreed | partial; HTTP/MCP operations bind the principal, but Durable Object persistence and full document-head integration remain incomplete |
 | DOC-012 | Yjs text updates are complete bounded envelopes. The server checks the base state vector and applies the assembled update atomically; arbitrary fragments are not applied. | agreed | partial; adapter validation/tests exist, document lifecycle and durable update binding remain incomplete |
-| DOC-013 | A document WebSocket room authorizes joins and broadcasts only acknowledged, validated, durably committed operations with replay/resync and revocation handling. | agreed | missing; current implementation is a room/echo seam only |
+| DOC-013 | A document WebSocket room authorizes joins and broadcasts only acknowledged, validated, durably committed operations with replay/resync and revocation handling. | agreed | missing; current implementation is an authorized `ready` room seam that rejects unsupported application messages |
 | DOC-014 | Authorized readers can retrieve a current or immutable version with content, version, hash, timestamps, and provenance without seeing unauthorized content. | agreed | partial; authenticated current/version reads exist, but hierarchy metadata and complete policy model are absent |
 | DOC-015 | A review link is a capability-bearing reference to a specific review target and is validated before serving the review view. | draft pending product/access decisions | partial; creation exists, validation/serving route is absent |
 | DOC-016 | Human review supports comments anchored to blocks or ranges, replies, resolution/reopen, version history, and restore-as-new-version. | draft in PRD | missing in Worker; web behavior is mock-only |
@@ -101,9 +103,10 @@ The following are the first executable slices in the
   and client idempotency key, and the model returns the original version-1
   result for an equivalent retry while rejecting a changed payload.
 
-Focused tests cover these behaviors. Full SQL transaction, Durable Object
-restart, concurrent retry, and WebSocket mutation evidence is still required
-before the rules can move to `verified`.
+Focused tests cover these behaviors, including synchronous transaction callback
+execution and fail-closed WebSocket application messages. Full SQL transaction,
+Durable Object restart, concurrent retry, and authenticated WebSocket mutation
+evidence is still required before the rules can move to `verified`.
 
 Product expansion tickets remain blocked until the remaining integration and
 concurrency evidence is closed or explicitly accepted.
@@ -137,9 +140,10 @@ concurrency evidence is closed or explicitly accepted.
   finalized path, or concurrent retries.
 - Block and Yjs state are not fully integrated with the persisted document
   version/head model.
-- The WebSocket implementation is currently only the room/echo seam described
-  above; it has no validated operation envelope, durable commit, replay,
-  resync, backpressure, presence, or revocation behavior.
+- The WebSocket implementation is currently only the authorized room seam
+  described above; it has no validated operation envelope, durable commit,
+  replay, resync, backpressure, presence, or revocation behavior. Unsupported
+  application messages fail closed with policy code `1008`.
 - No workspace/site/page hierarchy or child listing exists.
 - Comments, replies, resolution/reopen, and restore are absent from the Worker;
   the web mock only demonstrates the intended interaction.
@@ -158,13 +162,13 @@ concurrency evidence is closed or explicitly accepted.
 | Canonical blocks, approval, chunks, and idempotency | [TD-006](../../../tech/decisions/TD-006-collaborative-blocks-and-crdt.md) |
 | Durable Object, room, access, and failure boundaries | [TD-007](../../../tech/decisions/TD-007-cloudflare-collaboration-topology.md) |
 | Replacement model and persistence | [document model](../../../../packages/cloudflare-worker/src/models/document-model.ts), [document store](../../../../packages/cloudflare-worker/src/database/document-store.ts) |
-| Room/echo seam and Yjs/block adapters | [Document Durable Object](../../../../packages/cloudflare-worker/src/durable-objects/document-durable-object.ts), [Yjs adapter](../../../../packages/cloudflare-worker/src/models/yjs-text.ts), [block CRDT](../../../../packages/cloudflare-worker/src/models/document-crdt.ts) |
+| Room seam and Yjs/block adapters | [Document Durable Object](../../../../packages/cloudflare-worker/src/durable-objects/document-durable-object.ts), [Yjs adapter](../../../../packages/cloudflare-worker/src/models/yjs-text.ts), [block CRDT](../../../../packages/cloudflare-worker/src/models/document-crdt.ts) |
 | Current API/MCP authorization boundaries | [document controller](../../../../packages/cloudflare-worker/src/controllers/document-controller.ts), [MCP controller](../../../../packages/cloudflare-worker/src/controllers/mcp-controller.ts), [policy](../../../../packages/cloudflare-worker/src/policy/document-policy.ts) |
-| Current focused tests | [document model tests](../../../../packages/cloudflare-worker/tests/document-model.test.ts), [CRDT/Yjs tests](../../../../packages/cloudflare-worker/tests/document-crdt.test.ts), [route tests](../../../../packages/cloudflare-worker/tests/document-routing.test.ts) |
+| Current focused tests | [document model tests](../../../../packages/cloudflare-worker/tests/document-model.test.ts), [store transaction test](../../../../packages/cloudflare-worker/tests/document-store.test.ts), [CRDT/Yjs tests](../../../../packages/cloudflare-worker/tests/document-crdt.test.ts), [route tests](../../../../packages/cloudflare-worker/tests/document-routing.test.ts), [WebSocket seam test](../../../../packages/cloudflare-worker/tests/websocket-protocol.test.ts) |
 | Human UI boundary | [web app README](../../../../packages/web-app/README.md), [mock transport](../../../../packages/web-app/src/main.ts) |
 
 The current worktree checks are `CI=true pnpm --filter
-@pubagent/cloudflare-worker test` (22 tests passed), the Worker typecheck, the
+@pubagent/cloudflare-worker test` (24 tests passed), the Worker typecheck, the
 web-app smoke check, `CI=true pnpm design:check` (8 artifacts verified), and
 `git diff --check`. These establish focused repository evidence only; they do
 not certify deployment, SQL/Durable Object recovery, concurrency, or the

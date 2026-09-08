@@ -11,7 +11,9 @@ dependency-light product web application.
   IDs, deterministic ordering, tombstones, UTF-8-safe text chunks, server
   sequences, duplicate replay, and causal-gap detection.
 - `DocumentDurableObject` owns the SQLite-backed document store and its
-  document-scoped WebSocket room.
+  document-scoped WebSocket room. The room authorizes upgrades and sends
+  `ready`; unsupported application messages fail closed until the validated
+  collaboration protocol is delivered.
 - Versioned HTTP and MCP-shaped routes publish, read, update, approve, and
   create review-link references; review-link consumption is still pending.
 - A responsive human review/editor surface demonstrates provenance, comments,
@@ -92,6 +94,9 @@ cross-Durable-Object rollback transactions.
   duplicate delivery, causal gaps, and immutable snapshots.
 - Model: version creation, restore, approval head checks, lifecycle policy, and
   idempotency.
+- Storage/transport seams: durable-sqlite transaction callbacks execute
+  synchronously, and unsupported WebSocket application messages close with
+  policy code `1008` rather than being echoed.
 - Worker: capability denial, stable permalink responses, HTML escaping, route
   status codes, WebSocket upgrade, and MCP parity.
 - Durable Object: migration initialization, snapshot/replay, restart recovery,

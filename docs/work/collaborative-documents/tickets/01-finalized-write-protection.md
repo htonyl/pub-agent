@@ -34,5 +34,12 @@ status/error assertions. Run the focused Worker suite and typecheck.
 ## Results
 
 Implemented in the model/store/Document Durable Object paths for replacement,
-Yjs, and block mutations. Focused Worker tests pass, but direct Durable Object,
-SQL, restart, and all-path rejection tests remain outstanding.
+Yjs, and block mutations. Focused Worker tests pass, and the storage transaction
+callbacks now execute synchronously so a rejected or failed write cannot race a
+premature transaction commit. Direct Durable Object, SQL, restart, and all-path
+rejection tests remain outstanding.
+
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (24 passed),
+`CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
+`git diff --check` (passed). Wrangler local Durable Object smoke testing was
+skipped because the restricted environment denied loopback binding.

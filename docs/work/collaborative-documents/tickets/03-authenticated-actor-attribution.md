@@ -35,6 +35,14 @@ normalization behavior is documented.
 ## Results
 
 HTTP and MCP block operations now overwrite client actor fields with the
-authenticated principal before model application. Focused route/model checks
-pass; replacement/Yjs provenance and WebSocket session tests remain to be
-proved in the Durable Object integration.
+authenticated principal before model application. Unsupported WebSocket
+application messages now close with policy code `1008` instead of being echoed
+or broadcast; the room still accepts an authorized upgrade and sends `ready`.
+Focused route/model and WebSocket seam checks pass; replacement/Yjs provenance
+and authenticated WebSocket session tests remain to be proved in Durable
+Object integration.
+
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (24 passed),
+`CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
+`git diff --check` (passed). Wrangler local Durable Object smoke testing was
+skipped because the restricted environment denied loopback binding.
