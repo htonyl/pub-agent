@@ -11,6 +11,7 @@ import {
 } from '../src/models/document-model'
 
 class InMemoryDocumentStore implements DocumentStore {
+  failAfterCreate = false
   private readonly documents = new Map<string, DocumentSnapshot>()
   private readonly versions = new Map<string, DocumentVersion>()
   private readonly updates = new Map<string, number>()
@@ -37,6 +38,10 @@ class InMemoryDocumentStore implements DocumentStore {
     this.documents.set(input.id, document)
     this.versions.set(`${input.id}:1`, { ...document, actorId: input.actorId, clientUpdateId: input.clientUpdateId })
     this.updates.set(`${input.id}:${input.clientUpdateId}`, 1)
+    if (this.failAfterCreate) {
+      this.failAfterCreate = false
+      throw new Error('transient response failure')
+    }
     return Promise.resolve(document)
   }
 
@@ -154,5 +159,15 @@ describe('DocumentModel', () => {
     await model.applyUpdate({ documentId: 'doc-1', actorId: 'human', clientUpdateId: 'edit-1', baseVersion: 1, content: 'two' })
     await expect(model.create(input)).resolves.toEqual(first)
     await expect(model.create({ ...input, content: 'changed' })).rejects.toThrow('creation key was reused')
+  })
+
+  it('recovers a create acknowledgement after a durable write response failure', async () => {
+    const store = new InMemoryDocumentStore()
+    store.failAfterCreate = true
+    const model = new DocumentModel(store)
+    const input = { id: 'doc-retry', title: 'Retry', content: 'one', actorId: 'agent-1', clientUpdateId: 'create-retry' }
+
+    await expect(model.create(input)).resolves.toMatchObject({ id: 'doc-retry', version: 1, content: 'one' })
+    await expect(model.create(input)).resolves.toMatchObject({ id: 'doc-retry', version: 1, content: 'one' })
   })
 })

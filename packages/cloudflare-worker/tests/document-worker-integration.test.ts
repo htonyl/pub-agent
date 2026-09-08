@@ -97,10 +97,11 @@ describe('Worker document safety integration', () => {
     expect(mcpConflict.status).toBe(200)
     await expect(mcpConflict.json()).resolves.toMatchObject({ error: { code: -32009 } })
 
+    const createToken = await token(['document:create'])
     const raceClientUpdateId = `integration-approval-race-${Date.now()}`
     const raceCreate = await worker.fetch('/api/v1/documents', {
       method: 'POST',
-      headers: { authorization: `Bearer ${createTokenFor(actor)}`, 'content-type': 'application/json' },
+      headers: { authorization: `Bearer ${createToken}`, 'content-type': 'application/json' },
       body: JSON.stringify({ title: 'Approval race', content: 'race', clientUpdateId: raceClientUpdateId }),
     })
     expect(raceCreate.status).toBe(201)
@@ -127,7 +128,6 @@ describe('Worker document safety integration', () => {
       expect(raceFinal).toMatchObject({ version: 2, status: 'draft', content: 'race-updated' })
     }
 
-    const createToken = await token(['document:create'])
     const createRequest = () =>
       worker!.fetch('/api/v1/documents', {
         method: 'POST',
@@ -157,6 +157,17 @@ describe('Worker document safety integration', () => {
     })
     expect(version.status).toBe(200)
     await expect(version.json()).resolves.toMatchObject({ actorId: actor, clientUpdateId: 'integration-update-1' })
+
+    const conflictingUpdate = await worker.fetch(`/api/v1/documents/${documentId}/updates`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${updateToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ baseVersion: 1, content: 'different', clientUpdateId: 'integration-update-1' }),
+    })
+    expect(conflictingUpdate.status).toBe(409)
+    const unchangedAfterConflict = await worker.fetch(`/api/v1/documents/${documentId}`, {
+      headers: { authorization: `Bearer ${updateToken}` },
+    })
+    await expect(unchangedAfterConflict.json()).resolves.toMatchObject({ version: 2, content: 'two', status: 'draft' })
 
     const operation = {
       type: 'insert',
@@ -205,6 +216,16 @@ describe('Worker document safety integration', () => {
     expect(exactApproval.status).toBe(200)
     await expect(exactApproval.json()).resolves.toMatchObject({ version: 2, content: 'two', status: 'finalized' })
 
+    const finalizedBefore = await worker.fetch(`/api/v1/documents/${documentId}`, {
+      headers: { authorization: `Bearer ${updateToken}` },
+    }).then((response) => response.json() as Promise<Record<string, unknown>>)
+    const historyBefore = await worker.fetch(`/api/v1/documents/${documentId}/snapshot`, {
+      headers: { authorization: `Bearer ${updateToken}` },
+    }).then((response) => response.json() as Promise<Record<string, unknown>>)
+    const yjsBefore = await worker.fetch(`/api/v1/documents/${documentId}/yjs-snapshot`, {
+      headers: { authorization: `Bearer ${updateToken}` },
+    }).then((response) => response.json() as Promise<Record<string, unknown>>)
+
     const finalizedOperation = {
       type: 'insert',
       actorId: 'spoofed-client',
@@ -229,12 +250,46 @@ describe('Worker document safety integration', () => {
     })
     expect(replacement.status).toBe(409)
 
-    const block = await worker.fetch(`/api/v1/documents/${documentId}/operations`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${updateToken}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ operation: finalizedOperation }),
-    })
-    expect(block.status).toBe(409)
+    const finalizedOperations = [
+      finalizedOperation,
+      {
+        type: 'update',
+        actorId: 'spoofed-client',
+        clientId: 'integration-client',
+        opId: 'integration-finalized-update',
+        logicalClock: 2,
+        baseSequence: 0,
+        blockId: 'integration-block',
+        patch: { content: { type: 'text', chunks: ['should not persist'] } },
+      },
+      {
+        type: 'delete',
+        actorId: 'spoofed-client',
+        clientId: 'integration-client',
+        opId: 'integration-finalized-delete',
+        logicalClock: 2,
+        baseSequence: 0,
+        blockId: 'integration-block',
+      },
+      {
+        type: 'move',
+        actorId: 'spoofed-client',
+        clientId: 'integration-client',
+        opId: 'integration-finalized-move',
+        logicalClock: 2,
+        baseSequence: 0,
+        blockId: 'integration-block',
+        afterBlockId: null,
+      },
+    ]
+    for (const operation of finalizedOperations) {
+      const block = await worker.fetch(`/api/v1/documents/${documentId}/operations`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${updateToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ operation }),
+      })
+      expect(block.status).toBe(409)
+    }
 
     const yjsSnapshotResponse = await worker.fetch(`/api/v1/documents/${documentId}/yjs-snapshot`, {
       headers: { authorization: `Bearer ${updateToken}` },
@@ -255,6 +310,23 @@ describe('Worker document safety integration', () => {
     })
     expect(yjs.status).toBe(409)
 
+    const finalizedAfter = await worker.fetch(`/api/v1/documents/${documentId}`, {
+      headers: { authorization: `Bearer ${updateToken}` },
+    }).then((response) => response.json() as Promise<Record<string, unknown>>)
+    const historyAfter = await worker.fetch(`/api/v1/documents/${documentId}/snapshot`, {
+      headers: { authorization: `Bearer ${updateToken}` },
+    }).then((response) => response.json() as Promise<Record<string, unknown>>)
+    const yjsAfter = await worker.fetch(`/api/v1/documents/${documentId}/yjs-snapshot`, {
+      headers: { authorization: `Bearer ${updateToken}` },
+    }).then((response) => response.json() as Promise<Record<string, unknown>>)
+    expect(finalizedAfter).toEqual(finalizedBefore)
+    expect(historyAfter).toEqual(historyBefore)
+    expect(yjsAfter).toEqual(yjsBefore)
+    const missingVersion = await worker.fetch(`/api/v1/documents/${documentId}/versions/3`, {
+      headers: { authorization: `Bearer ${updateToken}` },
+    })
+    expect(missingVersion.status).toBe(404)
+
     await worker.evictDurableObject('DOCUMENTS', { name: documentId })
     const afterRestart = await worker.fetch(`/api/v1/documents/${documentId}`, {
       headers: { authorization: `Bearer ${updateToken}` },
@@ -262,12 +334,31 @@ describe('Worker document safety integration', () => {
     expect(afterRestart.status).toBe(200)
     await expect(afterRestart.json()).resolves.toMatchObject({ version: 2, content: 'two', status: 'finalized' })
 
+    const unauthenticatedCollaboration = await worker.fetch(`/documents/${documentId}/collaborate`, {
+      headers: { upgrade: 'websocket' },
+    })
+    expect(unauthenticatedCollaboration.status).toBe(401)
+    const unauthorizedCollaborationToken = await token(['document:read'], [documentId])
+    const unauthorizedCollaboration = await worker.fetch(`/documents/${documentId}/collaborate`, {
+      headers: { authorization: `Bearer ${unauthorizedCollaborationToken}`, upgrade: 'websocket' },
+    })
+    expect(unauthorizedCollaboration.status).toBe(403)
+
     const collaborationToken = await token(['document:collaborate'], [documentId])
     const collaborationHandshake = await worker.fetch(`/documents/${documentId}/collaborate`, {
       headers: { authorization: `Bearer ${collaborationToken}`, upgrade: 'websocket' },
     })
     expect(collaborationHandshake.status).toBe(101)
-    collaborationHandshake.webSocket?.close()
+    const collaborationSocket = collaborationHandshake.webSocket
+    expect(collaborationSocket).toBeDefined()
+    if (collaborationSocket) {
+      const closeEvent = new Promise<{ code: number; reason: string }>((resolve) => {
+        collaborationSocket.addEventListener('close', (event) => resolve(event as unknown as { code: number; reason: string }), { once: true })
+      })
+      collaborationSocket.accept()
+      collaborationSocket.send(JSON.stringify({ type: 'unsupported' }))
+      await expect(closeEvent).resolves.toMatchObject({ code: 1008, reason: 'Collaboration protocol is not implemented' })
+    }
   }, 120_000)
 })
 
@@ -278,13 +369,6 @@ async function token(
 ) {
   return createBearerToken(
     { subject, capabilities, expiresAt: Math.floor(Date.now() / 1000) + 300, ...(documentIds ? { documentIds } : {}) },
-    secret,
-  )
-}
-
-async function createTokenFor(subject: string) {
-  return createBearerToken(
-    { subject, capabilities: ['document:create'], expiresAt: Math.floor(Date.now() / 1000) + 300 },
     secret,
   )
 }
