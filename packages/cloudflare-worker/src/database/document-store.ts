@@ -46,9 +46,9 @@ export class DrizzleDocumentStore implements DocumentStore {
       updatedAt: input.now,
     }
 
-    await this.db.transaction(async (tx) => {
-      await tx.insert(documents).values(snapshotToRow(snapshot))
-      await tx.insert(documentVersions).values({
+    this.db.transaction((tx) => {
+      tx.insert(documents).values(snapshotToRow(snapshot)).run()
+      tx.insert(documentVersions).values({
         id: versionId(input.id, 1),
         documentId: input.id,
         version: 1,
@@ -59,15 +59,15 @@ export class DrizzleDocumentStore implements DocumentStore {
         actorId: input.actorId,
         clientUpdateId: input.clientUpdateId,
         createdAt: input.now,
-      })
-      await tx.insert(documentUpdates).values({
+      }).run()
+      tx.insert(documentUpdates).values({
         id: updateId(input.id, input.clientUpdateId),
         documentId: input.id,
         clientUpdateId: input.clientUpdateId,
         version: 1,
         actorId: input.actorId,
         createdAt: input.now,
-      })
+      }).run()
     })
 
     return snapshot
@@ -115,13 +115,13 @@ export class DrizzleDocumentStore implements DocumentStore {
     document: DocumentSnapshot
     duplicate: boolean
   }> {
-    return this.db.transaction(async (tx) => {
-      const existingUpdate = await tx
+    return this.db.transaction((tx) => {
+      const existingUpdate = tx
         .select()
         .from(documentUpdates)
         .where(eq(documentUpdates.id, updateId(input.documentId, input.clientUpdateId)))
         .get()
-      const currentRow = await tx
+      const currentRow = tx
         .select()
         .from(documents)
         .where(eq(documents.id, input.documentId))
@@ -132,7 +132,7 @@ export class DrizzleDocumentStore implements DocumentStore {
         throw new Error('Document not found')
       }
       if (existingUpdate) {
-        const original = await tx
+        const original = tx
           .select()
           .from(documentVersions)
           .where(and(eq(documentVersions.documentId, input.documentId), eq(documentVersions.version, existingUpdate.version)))
@@ -154,11 +154,12 @@ export class DrizzleDocumentStore implements DocumentStore {
         updatedAt: input.now,
       }
 
-      await tx
+      tx
         .update(documents)
         .set({ content: next.content, contentHash: next.contentHash, version: next.version, updatedAt: next.updatedAt })
         .where(eq(documents.id, input.documentId))
-      await tx.insert(documentVersions).values({
+        .run()
+      tx.insert(documentVersions).values({
         id: versionId(input.documentId, next.version),
         documentId: input.documentId,
         version: next.version,
@@ -169,15 +170,15 @@ export class DrizzleDocumentStore implements DocumentStore {
         actorId: input.actorId,
         clientUpdateId: input.clientUpdateId,
         createdAt: input.now,
-      })
-      await tx.insert(documentUpdates).values({
+      }).run()
+      tx.insert(documentUpdates).values({
         id: updateId(input.documentId, input.clientUpdateId),
         documentId: input.documentId,
         clientUpdateId: input.clientUpdateId,
         version: next.version,
         actorId: input.actorId,
         createdAt: input.now,
-      })
+      }).run()
 
       return { document: next, duplicate: false }
     })
@@ -189,8 +190,8 @@ export class DrizzleDocumentStore implements DocumentStore {
     now: Date,
     expected?: { version: number; contentHash: string },
   ): Promise<DocumentSnapshot> {
-    return this.db.transaction(async (tx) => {
-      const currentRow = await tx.select().from(documents).where(eq(documents.id, documentId)).get()
+    return this.db.transaction((tx) => {
+      const currentRow = tx.select().from(documents).where(eq(documents.id, documentId)).get()
       const current = currentRow ? rowToSnapshot(currentRow) : null
       if (!current) {
         throw new Error('Document not found')
@@ -205,7 +206,7 @@ export class DrizzleDocumentStore implements DocumentStore {
         throw new DocumentConflictError('Document version or content hash is stale')
       }
 
-      await tx.update(documents).set({ status, updatedAt: now }).where(eq(documents.id, documentId))
+      tx.update(documents).set({ status, updatedAt: now }).where(eq(documents.id, documentId)).run()
       return { ...current, status, updatedAt: now }
     })
   }

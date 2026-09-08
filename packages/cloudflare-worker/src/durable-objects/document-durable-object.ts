@@ -24,6 +24,7 @@ import {
   type YjsTextUpdateEnvelope,
 } from '../models/yjs-text'
 import { documentPolicy, type DocumentCapability } from '../policy/document-policy'
+import { rejectApplicationMessage } from './websocket-protocol'
 
 export class DocumentDurableObject extends DurableObject {
   private readonly state: DurableObjectState
@@ -160,11 +161,10 @@ export class DocumentDurableObject extends DurableObject {
     return new Response(null, { status: 101, webSocket: client })
   }
 
-  webSocketMessage(_webSocket: WebSocket, message: string | ArrayBuffer) {
-    const payload = typeof message === 'string' ? message : new TextDecoder().decode(message)
-    for (const socket of this.state.getWebSockets()) {
-      socket.send(payload)
-    }
+  webSocketMessage(webSocket: WebSocket, _message: string | ArrayBuffer) {
+    // The room currently has no validated application protocol. Do not echo
+    // arbitrary client payloads or let an unvalidated message look durable.
+    rejectApplicationMessage(webSocket)
   }
 
   webSocketClose(webSocket: WebSocket) {
