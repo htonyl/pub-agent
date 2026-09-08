@@ -242,12 +242,35 @@ function notFound(c: DocumentContext, message: string) {
 }
 
 function modelError(c: DocumentContext, error: unknown) {
-  if (error instanceof DocumentConflictError || error instanceof DocumentFinalizedError) return c.json(renderError(error.message), 409)
-  if (error instanceof DocumentCrdtError) {
-    const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'CAUSAL_GAP' || error.code === 'CONFLICT' ? 409 : 400
-    return c.json(renderError(error.message), status)
+  const details = errorDetails(error)
+  if (error instanceof DocumentConflictError || error instanceof DocumentFinalizedError || details?.name === 'DocumentConflictError' || details?.name === 'DocumentFinalizedError') {
+    return c.json(renderError(details?.message ?? 'Document cannot be changed'), 409)
   }
-  if (error instanceof Error && error.message === 'Document not found') return notFound(c, error.message)
-  if (error instanceof Error) return badRequest(c, error.message)
+  if (error instanceof DocumentCrdtError || details?.name === 'DocumentCrdtError' || details?.name === 'CausalGapError') {
+    const status = details?.code === 'NOT_FOUND' ? 404 : details?.code === 'CAUSAL_GAP' || details?.code === 'CONFLICT' ? 409 : 400
+    return c.json(renderError(details?.message ?? 'Document operation could not be processed'), status)
+  }
+  if (details?.message === 'Document not found') return notFound(c, details.message)
+  if (details?.message) return badRequest(c, details.message)
   return badRequest(c, 'request could not be processed')
+}
+
+type ErrorDetails = { name?: string; message?: string; code?: string }
+
+function errorDetails(error: unknown): ErrorDetails | null {
+  if (error instanceof Error) {
+    const details = error as Error & { code?: unknown }
+    return {
+      name: details.name,
+      message: details.message,
+      ...(typeof details.code === 'string' ? { code: details.code } : {}),
+    }
+  }
+  if (!error || typeof error !== 'object') return null
+  const details = error as Record<string, unknown>
+  return {
+    ...(typeof details.name === 'string' ? { name: details.name } : {}),
+    ...(typeof details.message === 'string' ? { message: details.message } : {}),
+    ...(typeof details.code === 'string' ? { code: details.code } : {}),
+  }
 }

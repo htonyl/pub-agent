@@ -9,8 +9,12 @@ a block CRDT module, a bounded Yjs adapter, signed bearer authorization, and
 document-scoped WebSocket plumbing. The current worktree also implements
 finalized-write rejection, exact approval preconditions, principal-bound block
 attribution, and deterministic create retries. Those safety paths have focused
-model, route, storage-transaction, and WebSocket-seam evidence, but not yet
-complete Durable Object, SQL, restart, or authenticated WebSocket coverage.
+model, route, storage-transaction, and WebSocket-seam evidence. A test-only
+Wrangler harness now covers the real HTTP, Durable Object, SQLite, retry,
+approval, attribution, finalized-write, and eviction/restart path, but this
+environment requires loopback-enabled execution for that test. The scenario
+passes when run with loopback access; authenticated WebSocket coverage remains
+outside its scope.
 
 ## Purpose and actors
 
@@ -72,13 +76,13 @@ not mean deployed or production-ready.
 | ID | Rule | Agreement | Implementation |
 | --- | --- | --- | --- |
 | DOC-001 | A document has a stable ID, title, text content, lifecycle status, monotonically increasing version, content hash, and timestamps. | agreed | partial |
-| DOC-002 | A valid create publishes version 1 and records the initial client update ID and actor attribution. Invalid input creates no partial document. | agreed | partial; model/store path exists, but persistence and failure-atomicity evidence is incomplete |
+| DOC-002 | A valid create publishes version 1 and records the initial client update ID and actor attribution. Invalid input creates no partial document. | agreed | partial; real persistence and concurrent retry evidence exist, but invalid-input failure atomicity is not fully exercised |
 | DOC-003 | A replacement update must identify the current base version. A stale base is rejected and does not create a new version. | agreed | verified for replacement model |
 | DOC-004 | A duplicate client update ID returns the original acknowledgement and does not create another version. Reuse with a different payload is a conflict. | agreed | partial; update replay exists, payload equivalence is not enforced |
-| DOC-005 | A retry of a create with the same idempotency key and equivalent request returns the original document result and does not create a second document. | agreed | partial; deterministic actor/key routing and model retry behavior are implemented, but SQL/restart/concurrency evidence is pending |
+| DOC-005 | A retry of a create with the same idempotency key and equivalent request returns the original document result and does not create a second document. | agreed | partial; deterministic routing, real SQLite persistence, eviction recovery, and concurrent retries are evidenced; MCP parity and broader conflict cases remain |
 | DOC-006 | Every persisted change carries the authenticated principal as actor attribution. Request fields or operation payloads cannot substitute another actor. | agreed | partial; HTTP/MCP block operations are normalized to the principal, while the WebSocket mutation protocol remains absent |
-| DOC-007 | Finalized documents are read-only to agents by default. Replacement updates, Yjs text updates, and block mutations are rejected server-side while finalized. A future human-approved override must be explicit, scoped, and expiring. | agreed | partial; model/store/DO guards are implemented, but all-path Durable Object and SQL evidence is pending |
-| DOC-008 | Approval finalizes only the exact immutable version whose expected version number and content hash match the current head in one serialized/atomic operation. A stale or hash-mismatched request has no effect. | agreed | partial; version/hash compare-and-set is implemented and focused tests pass, but SQL/concurrency evidence is pending |
+| DOC-007 | Finalized documents are read-only to agents by default. Replacement updates, Yjs text updates, and block mutations are rejected server-side while finalized. A future human-approved override must be explicit, scoped, and expiring. | agreed | partial; real replacement, Yjs, and block guard paths are exercised, while complete unchanged-history and override semantics remain open |
+| DOC-008 | Approval finalizes only the exact immutable version whose expected version number and content hash match the current head in one serialized/atomic operation. A stale or hash-mismatched request has no effect. | agreed | partial; real SQLite stale/hash/exact cases pass, while approval/update race coverage remains open |
 | DOC-009 | A finalized version remains immutable. Any later permitted change creates a new version and makes the previous approval historical. | agreed | partial; finalized writes are now guarded, but permitted override and block/Yjs version integration are undefined |
 | DOC-010 | Canonical document structure is typed, ordered blocks with stable block IDs, provenance, tombstones for deletes, deterministic ordering, and UTF-8-bounded chunks. | agreed | partial; pure `DocumentCrdt` foundation is tested, but persisted document state remains text-first |
 | DOC-011 | Block operations are validated before assigning a document-local sequence. Duplicate `opId` replay returns the original acknowledgement; causal gaps require resync. | agreed | partial; HTTP/MCP operations bind the principal, but Durable Object persistence and full document-head integration remain incomplete |
@@ -104,9 +108,14 @@ The following are the first executable slices in the
   result for an equivalent retry while rejecting a changed payload.
 
 Focused tests cover these behaviors, including synchronous transaction callback
-execution and fail-closed WebSocket application messages. Full SQL transaction,
-Durable Object restart, concurrent retry, and authenticated WebSocket mutation
-evidence is still required before the rules can move to `verified`.
+execution and fail-closed WebSocket application messages. The opt-in Wrangler
+integration test passes the real route/Durable Object/SQLite scenario and is
+available at
+`packages/cloudflare-worker/tests/document-worker-integration.test.ts`; run it
+with `PUBAGENT_RUN_WRANGLER_INTEGRATION=1` in a network-enabled environment.
+Authenticated WebSocket mutation plus MCP retry parity remain outside its
+scope, so the four safety rules remain `partial` or `verify` until those gaps
+are closed or accepted.
 
 Product expansion tickets remain blocked until the remaining integration and
 concurrency evidence is closed or explicitly accepted.
@@ -135,9 +144,11 @@ concurrency evidence is closed or explicitly accepted.
 
 ### Partial or missing
 
-- Full safety evidence is incomplete: focused tests cover the model and route
-  seams, not real SQL transactions, Durable Object restart, every Yjs/block
-  finalized path, or concurrent retries.
+- Full safety evidence is incomplete: the test-only Wrangler integration
+  harness passes real SQL transactions, Durable Object restart, finalized
+  replacement/Yjs/block paths, and concurrent retries when loopback access is
+  enabled. Authenticated WebSocket mutation and MCP retry parity remain
+  untested.
 - Block and Yjs state are not fully integrated with the persisted document
   version/head model.
 - The WebSocket implementation is currently only the authorized room seam
@@ -164,15 +175,15 @@ concurrency evidence is closed or explicitly accepted.
 | Replacement model and persistence | [document model](../../../../packages/cloudflare-worker/src/models/document-model.ts), [document store](../../../../packages/cloudflare-worker/src/database/document-store.ts) |
 | Room seam and Yjs/block adapters | [Document Durable Object](../../../../packages/cloudflare-worker/src/durable-objects/document-durable-object.ts), [Yjs adapter](../../../../packages/cloudflare-worker/src/models/yjs-text.ts), [block CRDT](../../../../packages/cloudflare-worker/src/models/document-crdt.ts) |
 | Current API/MCP authorization boundaries | [document controller](../../../../packages/cloudflare-worker/src/controllers/document-controller.ts), [MCP controller](../../../../packages/cloudflare-worker/src/controllers/mcp-controller.ts), [policy](../../../../packages/cloudflare-worker/src/policy/document-policy.ts) |
-| Current focused tests | [document model tests](../../../../packages/cloudflare-worker/tests/document-model.test.ts), [store transaction test](../../../../packages/cloudflare-worker/tests/document-store.test.ts), [CRDT/Yjs tests](../../../../packages/cloudflare-worker/tests/document-crdt.test.ts), [route tests](../../../../packages/cloudflare-worker/tests/document-routing.test.ts), [WebSocket seam test](../../../../packages/cloudflare-worker/tests/websocket-protocol.test.ts) |
+| Current focused tests | [document model tests](../../../../packages/cloudflare-worker/tests/document-model.test.ts), [store transaction test](../../../../packages/cloudflare-worker/tests/document-store.test.ts), [CRDT/Yjs tests](../../../../packages/cloudflare-worker/tests/document-crdt.test.ts), [route tests](../../../../packages/cloudflare-worker/tests/document-routing.test.ts), [WebSocket seam test](../../../../packages/cloudflare-worker/tests/websocket-protocol.test.ts), [opt-in Worker integration test](../../../../packages/cloudflare-worker/tests/document-worker-integration.test.ts) |
 | Human UI boundary | [web app README](../../../../packages/web-app/README.md), [mock transport](../../../../packages/web-app/src/main.ts) |
 
 The current worktree checks are `CI=true pnpm --filter
 @pubagent/cloudflare-worker test` (24 tests passed), the Worker typecheck, the
 web-app smoke check, `CI=true pnpm design:check` (8 artifacts verified), and
-`git diff --check`. These establish focused repository evidence only; they do
-not certify deployment, SQL/Durable Object recovery, concurrency, or the
-WebSocket protocol.
+`git diff --check`. The opt-in integration test passes with loopback access
+(the default restricted invocation skips it with `EPERM`); these checks do not
+certify deployment or the WebSocket protocol.
 
 The work record maps each rule to a ticket and planned verification. This
 capability document should be updated in the same change as behavior changes;

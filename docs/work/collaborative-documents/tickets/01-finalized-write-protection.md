@@ -36,10 +36,15 @@ status/error assertions. Run the focused Worker suite and typecheck.
 Implemented in the model/store/Document Durable Object paths for replacement,
 Yjs, and block mutations. Focused Worker tests pass, and the storage transaction
 callbacks now execute synchronously so a rejected or failed write cannot race a
-premature transaction commit. Direct Durable Object, SQL, restart, and all-path
-rejection tests remain outstanding.
+premature transaction commit. The opt-in runtime scenario also exercises these
+finalized paths through a real Durable Object and SQLite store, including
+eviction recovery; complete unchanged-history assertions and every block
+operation variant remain outstanding.
 
-Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (24 passed),
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (25 passed),
 `CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
-`git diff --check` (passed). Wrangler local Durable Object smoke testing was
-skipped because the restricted environment denied loopback binding.
+`git diff --check` (passed). The opt-in runtime scenario passed through the
+real routes and Durable Object for replacement, Yjs, and block rejection:
+`PUBAGENT_RUN_WRANGLER_INTEGRATION=1 ./node_modules/.bin/vitest run
+tests/document-worker-integration.test.ts`. The remaining evidence gap is
+authenticated WebSocket mutation coverage.

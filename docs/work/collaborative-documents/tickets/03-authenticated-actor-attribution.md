@@ -42,7 +42,8 @@ Focused route/model and WebSocket seam checks pass; replacement/Yjs provenance
 and authenticated WebSocket session tests remain to be proved in Durable
 Object integration.
 
-Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (24 passed),
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (25 passed),
 `CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
-`git diff --check` (passed). Wrangler local Durable Object smoke testing was
-skipped because the restricted environment denied loopback binding.
+`git diff --check` (passed). The opt-in runtime scenario proves bearer
+attribution on a real block operation; authenticated WebSocket session
+identity remains outside the scenario.

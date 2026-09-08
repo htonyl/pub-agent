@@ -113,6 +113,12 @@ describe('DocumentModel', () => {
 
     await expect(model.applyUpdate(update)).resolves.toMatchObject({ duplicate: false, document: { version: 2 } })
     await expect(model.applyUpdate(update)).resolves.toMatchObject({ duplicate: true, document: { version: 2 } })
+    await expect(model.applyUpdate({ ...update, content: 'different' })).rejects.toThrow(
+      'Document update key was reused with different content',
+    )
+    await expect(model.applyUpdate({ ...update, actorId: 'different-actor' })).rejects.toThrow(
+      'Document update key was reused with different content',
+    )
   })
 
   it('rejects a stale base version', async () => {

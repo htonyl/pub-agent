@@ -137,6 +137,15 @@ export class DrizzleDocumentStore implements DocumentStore {
           .from(documentVersions)
           .where(and(eq(documentVersions.documentId, input.documentId), eq(documentVersions.version, existingUpdate.version)))
           .get()
+        if (
+          !original ||
+          original.actorId !== input.actorId ||
+          original.clientUpdateId !== input.clientUpdateId ||
+          original.version !== input.baseVersion + 1 ||
+          original.contentHash !== input.contentHash
+        ) {
+          throw new DocumentConflictError('Document update key was reused with different content')
+        }
         return { document: original ? versionToSnapshot(rowToVersion(original)) : current, duplicate: true }
       }
       if (current.status === 'finalized') {

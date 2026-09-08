@@ -197,7 +197,20 @@ export class DocumentModel {
       throw new Error('Document not found')
     }
     const duplicateAck = await this.store.getUpdateAck(input.documentId, input.clientUpdateId)
-    if (duplicateAck) return { document: duplicateAck, duplicate: true }
+    if (duplicateAck) {
+      const original = await this.store.getVersion(input.documentId, duplicateAck.version)
+      const contentHash = await hashText(input.content)
+      if (
+        !original ||
+        original.actorId !== input.actorId ||
+        original.clientUpdateId !== input.clientUpdateId ||
+        original.version !== input.baseVersion + 1 ||
+        original.contentHash !== contentHash
+      ) {
+        throw new DocumentConflictError('Document update key was reused with different content')
+      }
+      return { document: duplicateAck, duplicate: true }
+    }
     if (current.status === 'finalized') throw new DocumentFinalizedError()
 
     const next = this.crdt.apply(current, input, input.now ?? new Date())

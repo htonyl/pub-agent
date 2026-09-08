@@ -19,8 +19,9 @@ both match in one serialized/atomic operation.
 - Given head version `N` with hash `H2`, when a reviewer submits `(N, H),` then
   approval returns a conflict and leaves the status and head unchanged.
 - Given concurrent approval and update attempts, then the serialized result is
-  either an approval of the exact pair before a permitted new version or a
-  rejected stale approval; it never approves an unseen head.
+  either an approval of the exact pair followed by a rejected finalized write,
+  or an update followed by a rejected stale approval; it never approves an
+  unseen head.
 - Given a finalized document, when approval is retried for its already-finalized
   exact pair, then the response is explicit and no new version is created.
 
@@ -34,10 +35,12 @@ validation and assert conflict responses.
 
 Implemented with expected version and content hash compare-and-set in the store
 and model/route validation. The approval transaction callback now uses the
-synchronous durable-sqlite contract. Focused tests pass; real SQL transaction,
-concurrency, and Durable Object evidence remains outstanding.
+synchronous durable-sqlite contract. Focused tests and the opt-in real
+SQLite/Durable Object stale, hash-mismatch, and exact approval scenario pass;
+approval-versus-update race coverage remains outstanding.
 
-Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (24 passed),
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (25 passed),
 `CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
-`git diff --check` (passed). Wrangler local Durable Object smoke testing was
-skipped because the restricted environment denied loopback binding.
+`git diff --check` (passed). The opt-in runtime scenario passed stale,
+hash-mismatched, and exact approval requests through SQLite-backed Durable
+Object storage. A concurrent approval/update race test remains outstanding.

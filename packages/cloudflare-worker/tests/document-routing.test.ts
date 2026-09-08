@@ -45,6 +45,32 @@ const bindings = {
   PUBAGENT_AUTH_SECRET: 'test-secret',
 } as unknown as AppEnv['Bindings']
 
+const rpcConflictBindings = {
+  ...bindings,
+  DOCUMENTS: {
+    ...bindings.DOCUMENTS,
+    get: () => ({
+      ...stub,
+      approve: async () => {
+        throw { name: 'DocumentConflictError', message: 'Document version or content hash is stale' }
+      },
+    }),
+  },
+} as unknown as AppEnv['Bindings']
+
+const mcpRpcConflictBindings = {
+  ...bindings,
+  DOCUMENTS: {
+    ...bindings.DOCUMENTS,
+    get: () => ({
+      ...stub,
+      approve: async () => {
+        throw { name: 'DocumentConflictError', message: 'Document version or content hash is stale' }
+      },
+    }),
+  },
+} as unknown as AppEnv['Bindings']
+
 describe('document routes', () => {
   it('denies document access without an explicit capability', async () => {
     const response = await app.request('http://worker.test/api/v1/documents', { method: 'POST' }, bindings)
@@ -134,5 +160,46 @@ describe('document routes', () => {
       bindings,
     )
     expect(response.status).toBe(400)
+  })
+
+  it('maps serialized Durable Object conflicts to a conflict response', async () => {
+    const token = await createBearerToken({ subject: 'reviewer', capabilities: ['document:approve'], documentIds: ['doc-1'], expiresAt: Math.floor(Date.now() / 1000) + 60 }, 'test-secret')
+    const response = await app.request(
+      'http://worker.test/api/v1/documents/doc-1/approve',
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ expectedVersion: 1, expectedContentHash: 'stale-hash' }),
+      },
+      rpcConflictBindings,
+    )
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({ error: 'Document version or content hash is stale' })
+  })
+
+  it('preserves serialized Durable Object conflicts as MCP conflict errors', async () => {
+    const token = await createBearerToken({ subject: 'reviewer', capabilities: ['document:approve'], documentIds: ['doc-1'], expiresAt: Math.floor(Date.now() / 1000) + 60 }, 'test-secret')
+    const response = await app.request(
+      'http://worker.test/mcp/v1',
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: { name: 'approve', arguments: { documentId: 'doc-1', expectedVersion: 1, expectedContentHash: 'stale-hash' } },
+        }),
+      },
+      mcpRpcConflictBindings,
+    )
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 2,
+      error: { code: -32009, message: 'Document version or content hash is stale' },
+    })
   })
 })

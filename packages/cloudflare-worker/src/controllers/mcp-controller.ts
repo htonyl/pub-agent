@@ -44,10 +44,16 @@ export async function handleMcpRequest(c: McpContext) {
     return c.json({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result, isError: false } })
   } catch (error) {
     if (error instanceof McpAuthorizationError) return authError(c, id, error.status)
-    if (error instanceof DocumentConflictError || error instanceof DocumentFinalizedError) {
-      return c.json({ jsonrpc: '2.0', id, error: { code: -32009, message: error.message } })
+    const details = errorDetails(error)
+    if (
+      error instanceof DocumentConflictError ||
+      error instanceof DocumentFinalizedError ||
+      details?.name === 'DocumentConflictError' ||
+      details?.name === 'DocumentFinalizedError'
+    ) {
+      return c.json({ jsonrpc: '2.0', id, error: { code: -32009, message: details?.message ?? 'Document cannot be changed' } })
     }
-    const message = error instanceof Error ? error.message : 'Tool call failed'
+    const message = details?.message ?? 'Tool call failed'
     return c.json({ jsonrpc: '2.0', id, error: { code: -32000, message } }, 400)
   }
 }
@@ -111,4 +117,16 @@ function authError(c: McpContext, id: string | number, status: 401 | 403) {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+type ErrorDetails = { name?: string; message?: string }
+
+function errorDetails(error: unknown): ErrorDetails | null {
+  if (error instanceof Error) return { name: error.name, message: error.message }
+  if (!error || typeof error !== 'object') return null
+  const details = error as Record<string, unknown>
+  return {
+    ...(typeof details.name === 'string' ? { name: details.name } : {}),
+    ...(typeof details.message === 'string' ? { message: details.message } : {}),
+  }
 }

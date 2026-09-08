@@ -37,11 +37,13 @@ scoping. Exercise the transaction/recovery path supported by the store.
 Create routing now derives a stable actor/key document ID, and the model returns
 the immutable version-1 acknowledgement for equivalent retries while rejecting
 changed payloads within one actor scope. The create transaction callback also
-executes synchronously under durable-sqlite. Focused tests pass; durable
-persistence, restart recovery, concurrency, cross-actor route, and MCP retry
-evidence remain outstanding.
+executes synchronously under durable-sqlite. Focused tests and the opt-in
+runtime scenario cover durable persistence, eviction recovery, and concurrent
+equivalent creates; cross-actor route conflict cases and MCP retry parity remain
+outstanding.
 
-Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (24 passed),
+Evidence: `CI=true pnpm --filter @pubagent/cloudflare-worker test` (25 passed),
 `CI=true pnpm --filter @pubagent/cloudflare-worker typecheck` (passed), and
-`git diff --check` (passed). Wrangler local Durable Object smoke testing was
-skipped because the restricted environment denied loopback binding.
+`git diff --check` (passed). The opt-in runtime scenario covers concurrent
+equivalent creates and storage preservation across Durable Object eviction.
+MCP retry parity remains outside the scenario.
